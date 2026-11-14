@@ -1,0 +1,64 @@
+{
+  "schema": "station_lite_smolvla_environment_reference_v1",
+  "hardware_connected": false,
+  "baseline_environment_v062": {
+    "observation_date": "2026-11-13",
+    "python": "3.12.15 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:20:25) [GCC 14.3.0]",
+    "architecture": "x86_64",
+    "pythonpath_overlay": "SmolVLA/.deps",
+    "packages": {
+      "lerobot": "0.6.2",
+      "torch": "2.11.0",
+      "torchvision": "0.26.0",
+      "transformers": "5.5.4",
+      "accelerate": "1.15.0",
+      "datasets": "4.8.5",
+      "huggingface-hub": "1.33.0",
+      "numpy": "2.5.4",
+      "Pillow": "12.3.0",
+      "opencv-python-headless": "4.13.0.92",
+      "num2words": "0.5.14",
+      "docopt": "0.6.2",
+      "torchcodec": "0.11.1",
+      "av": "15.1.0",
+      "safetensors": "0.8.0",
+      "draccus": "0.11.6",
+      "scipy": null,
+      "pytest": null
+    },
+    "torch_runtime_version": "2.11.0+cu130",
+    "torch_cuda_build": "13.0",
+    "cuda_available_in_documentation_session": false,
+    "fresh_environment_validated": false,
+    "station_act_test_result": "66 tests, 1 error: missing scipy",
+    "system_python_test_result": "66 tests OK; /usr/bin/python3; 2.234s",
+    "new_policy_inference": "NOT RUN",
+    "new_hardware_test": "NOT RUN",
+    "dependency_note": "The package inventory lists Transformers 5.5.4, within the pinned source extra range >=5.4,<5.6. Earlier documentation also reported 5.22.2; that historical inventory discrepancy has not been re-verified for publication. This observed snapshot is not a portable resolver lock."
+  },
+  "candidate_environment_v070": {
+    "python": "3.12.16",
+    "lerobot": "0.7.0",
+    "torch": "2.15.0+cu132",
+    "torchvision": "0.29.2",
+    "transformers": "5.22.2",
+    "accelerate": "1.15.0",
+    "huggingface-hub": "2.4.0",
+    "numpy": "2.2.6",
+    "Pillow": "13.0.0",
+    "opencv-python-headless": "4.13.0.92",
+    "num2words": "0.5.14",
+    "cuda_device_name": "NVIDIA GeForce RTX 4080 Laptop GPU",
+    "offline_env": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1"
+    },
+    "precision_config": {
+      "cuda_matmul_allow_tf32": false,
+      "cudnn_allow_tf32": true,
+      "float32_matmul_precision": "highest"
+    },
+    "vlm_pinned_revision": "7b375e1b73b11138ff12fe22c8f2822d8fe03467"
+  },
+  "notes": "Private local filesystem paths, hostnames, LAN IPs, checkpoints, and raw camera captures are intentionally omitted."
+}

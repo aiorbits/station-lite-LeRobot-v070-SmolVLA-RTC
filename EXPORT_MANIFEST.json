@@ -1,0 +1,155 @@
+{
+  "bundle": "station-lite-LeRobot-v070-SmolVLA-RTC",
+  "repository": "https://github.com/aiorbits/station-lite-LeRobot-v070-SmolVLA-RTC",
+  "profile": "public_deprivatized",
+  "hardware_connected": false,
+  "file_count": 29,
+  "total_bytes": 762490,
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 576,
+      "sha256": "c444094b428745e962961e0afb760eb9bf3f7302e1bb3619e7a5ed3a85d47e2b"
+    },
+    {
+      "path": "README.md",
+      "bytes": 8007,
+      "sha256": "f48ff312302372c940eb142bc8e088a35cff1634e24385d95883178cf28d04a2"
+    },
+    {
+      "path": "docs/DEPLOYMENT_GUIDE.md",
+      "bytes": 5692,
+      "sha256": "40dc74293e69958524df7f72335f0f8a1e21aefb7a3ae0d92ead76ba9577a466"
+    },
+    {
+      "path": "docs/METHODS_AND_RTC_ARCHITECTURE.md",
+      "bytes": 13905,
+      "sha256": "22e4a21c155ea3ee4ae9b8d925c374fb190e5825726835ff76529f5c5100e9e2"
+    },
+    {
+      "path": "docs/MIGRATION_AND_SAFETY_GATES.md",
+      "bytes": 6792,
+      "sha256": "0eccff175c882c47e42550f103d489f19f599a896d4a84dfa0907e47fcffe3c2"
+    },
+    {
+      "path": "docs/RESULTS_AND_REPRODUCIBILITY.md",
+      "bytes": 5441,
+      "sha256": "eb26fa9cfdd93582995abd6c856e1d9241c8dab32230d12569e5638342261768"
+    },
+    {
+      "path": "manifests/environment_snapshot.json",
+      "bytes": 2417,
+      "sha256": "9be6de95375a9f3dfb17c370d380583c343f061eecab61087fa578ad705e7231"
+    },
+    {
+      "path": "manifests/runtime_profile.json",
+      "bytes": 1591,
+      "sha256": "467cf0f290fb887f1c3133e842be92173c44a15b81e05e8c61725b2327d61ba0"
+    },
+    {
+      "path": "src/__init__.py",
+      "bytes": 87,
+      "sha256": "2d625b4d0e4830e2f82d4ff6756ec2ff700223481b3a0c9ba1c489a92f72e1af"
+    },
+    {
+      "path": "src/analyze_joint_trace.py",
+      "bytes": 8086,
+      "sha256": "1c89dc32d0d97b606c4c813471ecc975562e1572227d25ad0322e803e58a61a1"
+    },
+    {
+      "path": "src/build_grasp_replay_cases.py",
+      "bytes": 78989,
+      "sha256": "df85797ad9244db2fa8909879f0e8cb0e02c9d4344381a842767dd8f960855c1"
+    },
+    {
+      "path": "src/g3_http_compatibility_gate.py",
+      "bytes": 36193,
+      "sha256": "491ec1fe478ed8d1342de9d8edfa696ec7ffc96e86d5b91d5a8ac183c79e9be0"
+    },
+    {
+      "path": "src/g4_execution_adapter_gate.py",
+      "bytes": 70887,
+      "sha256": "9ce0886d43102c9cc208d3e2f4c95423d1cb861900557ad775f22c58c8e2146b"
+    },
+    {
+      "path": "src/g4_sdk_dryrun_gate.py",
+      "bytes": 16756,
+      "sha256": "8f7cf7d9930619532f943abab74104a1de606cf77db8b16fd10a2c1ef4a88fba"
+    },
+    {
+      "path": "src/joint_trace.py",
+      "bytes": 12416,
+      "sha256": "6d4abc2462a7a868a150f69e4c2512adb11730cb1951554296fc3d0aa16385a3"
+    },
+    {
+      "path": "src/rtc_analysis/compare_guided_rtc.py",
+      "bytes": 6840,
+      "sha256": "ddea4e596719e4abe7926b8d426516411ab9a909371027e9594ead46d76a5de5"
+    },
+    {
+      "path": "src/rtc_analysis/probe_rtc_perturb_nfe.py",
+      "bytes": 5932,
+      "sha256": "f6f959c7e4757d8f0873f8e27b5c9c1c6cf79b747f9c4c558389571bc1b6ccd3"
+    },
+    {
+      "path": "src/station_lite_smolvla_right7_guarded.py",
+      "bytes": 219430,
+      "sha256": "e1ee0b67800680474156e398e0bb0a6c200814b204a79d1f6e4d1463adcdfae2"
+    },
+    {
+      "path": "src/station_lite_smolvla_right7_server.py",
+      "bytes": 16551,
+      "sha256": "3513f479985e0cbb4d5dfc81082f7e2884a154d5de437b40ef84c0d86a41a092"
+    },
+    {
+      "path": "src/station_lite_smolvla_single_chunk.py",
+      "bytes": 18449,
+      "sha256": "0d92aaccc9a86c8b07b1fdbc95c5b268615b79186ca25d0c27afdca728a653fe"
+    },
+    {
+      "path": "src/training/convert_right_only_dataset.py",
+      "bytes": 5281,
+      "sha256": "ab1ffd1171af2909f97e1b33bb6fcea415e1364da33a9fbe9be9e4c25b659954"
+    },
+    {
+      "path": "src/training/dataset_standard.py",
+      "bytes": 12651,
+      "sha256": "f8941a66935008cd7be8f9545e41f08545392cb82d352ffb613d2f62fc503aaf"
+    },
+    {
+      "path": "src/training/train_right_only_woodblock.py",
+      "bytes": 3795,
+      "sha256": "6b033b34868bd35467516e1645900d3fa29f89ca315ad36f3b38d0a48035df2e"
+    },
+    {
+      "path": "src/v070_common.py",
+      "bytes": 15504,
+      "sha256": "e72c32679027e1fa711aaffd25e1210781d29dd5181615cb08209400df8ee272"
+    },
+    {
+      "path": "tests/test_g3_contract.py",
+      "bytes": 5852,
+      "sha256": "73a07c4091c034b177398e630bd44408d8785ac02894e2b7e5f083b4ea0e1e7c"
+    },
+    {
+      "path": "tests/test_g4_adapter_and_lifecycle.py",
+      "bytes": 37362,
+      "sha256": "af090f62f8a6832df4a811e5d33522a75b49aa92e194f4f97d40c112cb70312c"
+    },
+    {
+      "path": "tests/test_joint_trace.py",
+      "bytes": 3855,
+      "sha256": "49a7ae1b87a629ca3e5cc1e8c61603982333f7f4b62c6f952fd2b1d286a4c2bb"
+    },
+    {
+      "path": "tests/test_right7_guarded_contract.py",
+      "bytes": 98718,
+      "sha256": "86af63add7ce5e571622a90b48b257f3af9cba2f5010163727a281df35460ce5"
+    },
+    {
+      "path": "tests/test_v070_optimizations.py",
+      "bytes": 44435,
+      "sha256": "b8dadd9026aa2d1b53001b570de3b15a5927acfae7ae7986e9b4f1d52b3e0bcd"
+    }
+  ]
+}

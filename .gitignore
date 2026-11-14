@@ -1,0 +1,50 @@
+# Checkpoints, weights, and foundation model caches
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.ckpt
+checkpoints/
+models/
+.hf_cache/
+cache/
+hf_cache/
+
+# Raw datasets, robot captures, camera images, and trajectory traces
+data/
+derived_datasets/
+diagnostics/
+outputs/
+results/
+snapshots/
+logs/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.avi
+*.npy
+*.npz
+*.parquet
+*.bag
+
+# Local secrets, environment files, and private receipts
+.env
+.env.*
+*.local.json
+*secret*
+*credential*
+*token*
+
+# Python / OS artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+.DS_Store
+
