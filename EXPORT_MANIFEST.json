@@ -3,8 +3,8 @@
   "repository": "https://github.com/aiorbits/station-lite-LeRobot-v070-SmolVLA-RTC",
   "profile": "public_deprivatized",
   "hardware_connected": false,
-  "file_count": 29,
-  "total_bytes": 762490,
+  "file_count": 30,
+  "total_bytes": 777629,
   "files": [
     {
       "path": ".gitignore",
@@ -13,28 +13,28 @@
     },
     {
       "path": "README.md",
-      "bytes": 8007,
-      "sha256": "f48ff312302372c940eb142bc8e088a35cff1634e24385d95883178cf28d04a2"
+      "bytes": 9776,
+      "sha256": "9fc5b87f63179fe248cafa8dff0dc5d2966897538c1e714657d5dc61fa87af20"
     },
     {
       "path": "docs/DEPLOYMENT_GUIDE.md",
-      "bytes": 5692,
-      "sha256": "40dc74293e69958524df7f72335f0f8a1e21aefb7a3ae0d92ead76ba9577a466"
+      "bytes": 7769,
+      "sha256": "62d76a142c821edb4e8f8067a4c1ba19686390b018f35f2db74481195bff124b"
     },
     {
       "path": "docs/METHODS_AND_RTC_ARCHITECTURE.md",
-      "bytes": 13905,
-      "sha256": "22e4a21c155ea3ee4ae9b8d925c374fb190e5825726835ff76529f5c5100e9e2"
+      "bytes": 14577,
+      "sha256": "d64b777cf9c3f1a86d25d49c09bd954d27f511d70d60f7e63577ed22cf283fe0"
     },
     {
       "path": "docs/MIGRATION_AND_SAFETY_GATES.md",
-      "bytes": 6792,
-      "sha256": "0eccff175c882c47e42550f103d489f19f599a896d4a84dfa0907e47fcffe3c2"
+      "bytes": 7117,
+      "sha256": "d701290c5658c139343d39aaa677aa207220d517747d04d9be8ea9d81814eb53"
     },
     {
       "path": "docs/RESULTS_AND_REPRODUCIBILITY.md",
-      "bytes": 5441,
-      "sha256": "eb26fa9cfdd93582995abd6c856e1d9241c8dab32230d12569e5638342261768"
+      "bytes": 9645,
+      "sha256": "aecb0b58ca6d57c47a23b4037ddcb676a92e08512f4403c1b657110a36ae6b5e"
     },
     {
       "path": "manifests/environment_snapshot.json",
@@ -150,6 +150,11 @@
       "path": "tests/test_v070_optimizations.py",
       "bytes": 44435,
       "sha256": "b8dadd9026aa2d1b53001b570de3b15a5927acfae7ae7986e9b4f1d52b3e0bcd"
+    },
+    {
+      "path": "manifests/live_hybrid_20261116_summary.json",
+      "bytes": 6092,
+      "sha256": "ef26408ee51f2d11b48cf641971c6d0fd9bc87fcefba1e99081a07416c80a4f5"
     }
   ]
 }

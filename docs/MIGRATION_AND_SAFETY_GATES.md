@@ -12,7 +12,7 @@ Moving a physical robot stack from `lerobot==0.6.2` (`torch==2.11.0+cu130`, `tra
 | **`G1` Offline Model Gate** (`src/v070_common.py`) | Cold load + CUDA warmup/benchmark + 5 negative tests (`HF_HUB_OFFLINE=1`, `TRANSFORMERS_OFFLINE=1`) | CUDA-only; fails if offline cache revision `7b375e1b...` missing or CPU requested | **PASSED**: cold load `47.258 s`, `917.0 MB` peak VRAM, `0.0` fixed-noise repeat diff, `12/12` finite `50x7` |
 | **`G2` Paired Numerical Parity** | `12 windows x 3 seeds x 3 repeats = 108 chunks/env` across `0.6.2` and `0.7.0` (`TF32=False`) | Identical pre-generated noise tensors and `uint8` image frames | `XYZ max = 0.7908 mm` (`<= 1.0`), `SO(3) max = 0.2530 deg` (`> 0.20`), `Gripper max = 4.2325 mm` (`> 0.5`) -> Triggered bisection |
 | **`G3` HTTP Service Contract** (`src/g3_http_compatibility_gate.py`) | Port separation (`8011`, refuses `8010`), `400` malformed/NaN/aspect checks, stale `seq/session/seed` client rejection | Runs with `hardware_connected=false`; never touches robot ports | **PASSED**: all malformed inputs rejected `400`, all stale responses rejected, reconnect RTT `233.672 ms` |
-| **`G4` Execution & Dry-Run Gate** (`src/g4_execution_adapter_gate.py`, `src/g4_sdk_dryrun_gate.py`) | Host adapter conditioning, fault-injection lifecycle tests, and CAN-isolated (`sudo unshare --net`) vendor SDK IK/400 Hz planner check | Blocks all CAN sockets inside network namespace during robot workstation dry-run | Host gates **PASSED**; `11/11` v1 fast-cycle robot dry-run **PASSED**; latest 13-case hybrid robot dry-run **`NOT RUN`** |
+| **`G4` Execution & Dry-Run Gate** (`src/g4_execution_adapter_gate.py`, `src/g4_sdk_dryrun_gate.py`) | Host adapter conditioning, fault-injection lifecycle tests, and CAN-isolated (`sudo unshare --net`) vendor SDK IK/400 Hz planner check | Blocks all CAN sockets inside network namespace during robot workstation dry-run | Host gates **PASSED**; `11/11` v1 fast-cycle robot dry-run **PASSED**; latest Hybrid **13/13 passed on 16 November**, input bundle `282d5eec...` |
 
 ---
 
@@ -54,5 +54,5 @@ We implemented multi-layer lifecycle protection in `src/station_lite_smolvla_rig
 5. **Network-Isolated CAN Dry-Run (`src/g4_sdk_dryrun_gate.py`)**: Executes vendor `solve_ik_euler` and `400 Hz` `plan_joint_waypoints_with_gripper` inside `sudo unshare --net` on the robot workstation—proving zero physical/soft joint violations and clean `cleanup()` return without touching hardware CAN buses.
 
 > [!NOTE]
-> While lifecycle fault injection (`14` unit scenarios) passed offline, a live physical hardware emergency-stop `safe_hold` pause test on an energized arm remains **`NOT RUN`**.
+> On 16 November, a cold-start stale-observation rejection exercised the operator hold-pause path on an energized arm, suppressed exit Home, and retained motor enable until interrupted teardown. This is an observed software lifecycle event, not a hardware E-stop or loaded-hold certification. The audit still records `safe_hold_verified=false`; comprehensive physical stop/hold validation remains unestablished. See [the run evidence and limits](RESULTS_AND_REPRODUCIBILITY.md).
 

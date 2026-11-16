@@ -22,7 +22,7 @@ Deploying flow-matching Vision-Language-Action (VLA) models on physical hardware
 ```mermaid
 flowchart TD
     A["Approach 1: Flow-Matching Guided RTC<br/>(RTCConfig, EXP attention mask)"] -->|"Measured: -5x..9x overlap error<br/>BUT +53%..57% latency & late spikes"| D["Research Benchmark<br/>(Not deployed standalone)"]
-    B["Approach 2: Settled-Chunk + AsyncPredictClient<br/>(tail_lead=0.10s main-thread capture + HTTP overlap)"] -->|"Measured: 95% prefetch hit rate<br/>Zero mid-spline discontinuity"| E["Current Live Deployment<br/>(4/4 live fast-cycle trials)"]
+    B["Approach 2: Settled-Chunk + AsyncPredictClient<br/>(tail_lead=0.10s main-thread capture + HTTP overlap)"] -->|"Measured: v1 19/20 hits<br/>Nov 16 Hybrid 16/16 warmed-up hits"| E["Current Live Deployment<br/>(v1 4/4; Hybrid 4/4 warmed-up trials)"]
     C["Approach 3: T3 Mid-Flight Phase-Aligned Splicing<br/>(evaluate_async_splice_candidate + cosine blend)"] -->|"Unit-tested dual 800ms freshness<br/>& tracking guards"| F["Staged Next Architecture<br/>(NOT RUN on robot)"]
 ```
 
@@ -65,7 +65,7 @@ To eliminate inference idle stalls *without* exposing hardware to unvalidated mi
      - Exact match of `session_id`, `seq`, and deterministic `sampling_seed`.
    - Any check failure discards the stale prediction and synchronously re-observes (`[ASYNC PREFETCH]`), ensuring safety degrades gracefully to synchronous settled inference.
 
-Across live fast-cycle v1 robot trials, `AsyncPredictClient` achieved a **`19/20` (95%) prefetch hit rate** with zero trajectory discontinuities.
+Across live fast-cycle v1 robot trials, `AsyncPredictClient` achieved **19/20 (95%) prefetch hits**. On 16 November the latest Hybrid achieved **16/16 hits across four warmed-up trials**, with normal completion and no guard rejection in that warmed-up sequence. Startup failures and cold rejection are reported separately in [Results](RESULTS_AND_REPRODUCIBILITY.md); hit rate does not certify trajectory continuity or comprehensive recovery.
 
 ### 2.3 T3 Foundation: Mid-Flight Phase-Aligned Splicing (`evaluate_async_splice_candidate`)
 
@@ -97,7 +97,7 @@ Rather than relying on unconditioned raw 50-step SmolVLA outputs alone—which o
 
 ---
 
-## 4. Hybrid Deterministic + VLA Fast-Cycle Pipeline (Nov 13 Iteration)
+## 4. Hybrid Deterministic + VLA Fast-Cycle Pipeline (Nov 13 Implementation; Nov 16 Live Pilot)
 
 To minimize single pick-and-place cycle time while preserving closed-loop visual adaptability at grasp and fine placement, the latest pipeline combines learned VLA chunks with deterministic smooth segments where kinematics/geometry are known:
 
@@ -111,3 +111,5 @@ To minimize single pick-and-place cycle time while preserving closed-loop visual
 
 Every deterministic and learned segment passes through the **identical continuous IK solver, 3-point zero-phase waypoint smoother (`smooth_joint_waypoints`, `alpha=0.20`), and post-smoothing joint/soft-limit validator (`validate_post_smoothing_waypoints`)** before reaching hardware.
 
+
+The 16 November reference-station pilot confirmed direct transport durations of 2.333 s at R2 and 3.444 s at R8, followed by visual placement, post-placement lift and Home. Overall strategy time was 26.77–28.90 s. These are complete-system measurements; live Guided RTC and T3 mid-flight splicing were not enabled or validated by this batch.

@@ -39,16 +39,45 @@ Implemented on top of Fast-Cycle v1 immediately prior to archiving this reposito
 2. **Scheme 3 (`trim_release_tail=True`)**: Compresses excess stationary dwell after brown-pad gripper release (`open_steps + 4`).
 3. **Aerial Pre-Grasp `1.5x` (`--aerial-approach-speed 0.36`)**: Accelerates pure aerial chunks above `max(0.176, hover_z_m - 0.012)` while preserving slow precision alignment near tabletop objects.
 
-### Current Verification Scope & Honest Boundaries
+### Live Pilot — 16 November 2026
 
-- **Verified**:
-  - Offline host guard & optimization unit tests (`test_right7_guarded_contract.py`, `test_v070_optimizations.py`, `test_g3_contract.py`, `test_g4_adapter_and_lifecycle.py`, `test_joint_trace.py`).
-  - `g4_execution_adapter_gate.py` `raw_actions` bundle key bug fix (discovered during robot dry-run prep) verified against synthetic bundle schema in `TestG4SdkDryRunGate`.
-- **`NOT RUN` (Explicitly Deferred Pending Next Lab Session)**:
-  - **13-Case CAN-Isolated Robot SDK Dry-Run (`unshare --net`)**: Needs re-execution on the robot workstation with the regenerated 13-case bundle.
-  - **Live Robot Pick-and-Place under Scheme 1 + Scheme 3 + Aerial `1.5x`**: Projected analytically to save an additional `~8–11 s` per cycle (`~20–24 s` estimated total vs. `30.2–32.2 s` Fast-Cycle v1), **not yet measured on hardware**.
-  - **Physical Hardware `safe_hold` E-Stop Interrupt Check**: Lifecycle logic verified across `14` mock fault-injection scenarios offline; energized physical hold pause **not yet exercised on robot**.
-  - **T3 Continuous Mid-Flight Splicing & Closed-Loop Multi-Object Sorting**: Unit-tested in offline suites (`evaluate_async_splice_candidate`), **not yet run on robot**.
+The latest configuration was tested on the calibrated reference station with one yellow block at a time. The operator reported all four warmed-up trials successfully grasped and placed the block. Archived text logs and lifecycle JSON agree on six chunks, `normal_completion`, release confirmation, successful post-placement lift, and exit Home in every trial. Physical placement is supported by the operator outcome, not inferred solely from gripper opening.
+
+| Run ID suffix (local time, UTC+08:00) | Cell | Strategy cycle (s) | Including lift + exit Home (s) | Pure commanded motion (s, handoff summary) | Direct transport | Prefetch |
+| --- | --- | ---: | ---: | ---: | --- | --- |
+| `20261116_154826` | R2 | 27.90 | 34.68 | 22.396 | 21 points / 2.333 s | 4/4 |
+| `20261116_154927` | R2 | 27.92 | 34.68 | 22.634 | 21 points / 2.333 s | 4/4 |
+| `20261116_155030` | R2 | 26.77 | 33.51 | 21.583 | 21 points / 2.333 s | 4/4 |
+| `20261116_155531` | R8 | 28.90 | 35.64 | 23.488 | 31 points / 3.444 s | 4/4 |
+
+**Timing:** strategy cycle starts at completion of startup Home and ends when the six-chunk policy loop completes. It includes camera acquisition, inference/planning and inter-chunk overhead, and excludes the subsequent vertical lift and exit Home. The longer column uses the same start and ends at completion of exit Home; initial startup homing and final process teardown are excluded from both. Times are rounded from the recorded run summary/transcript; pure motion is not a wall-clock task duration.
+
+Relative to the earlier v1 observations, R2 strategy time changed from 31.63–32.20 s to 26.77–27.92 s, and R8 from 30.21 s to 28.90 s. These are historical, unmatched comparisons with several controller changes; they do not isolate a causal LeRobot, asynchronous-prefetch or RTC benefit. The prior **20–24 s projection was not realized**: measured strategy time was 26.77–28.90 s. Four successes are a pilot observation, not a reliability estimate.
+
+### Planning Identity and Local Evidence
+
+The independently archived vendor report records `13/13` cases passed, `cases_failed=0`, `all_passed=true`, `cleanup_returned=true`, SDK `0.1.9`, `hardware_connected=false`, and only `lo` visible in the isolated namespace. Its input bundle SHA-256 is `282d5eec862f314cca9a5d7b108dcf71528f428695a983c658fa83ae1772806c`.
+
+Recorded original candidate source identities are guarded client `cabdc343b44e8768afd05ff75f0d69599f2d269b7dee3d3b629312ec842bf646` and conditioning helper `3b08bdf8aeb0839ef2b0ef7983cf345bf182744075444bc98b2e92dabbb899b3`. Current original local files match these hashes. Public source is a de-privatized edition and has separate hashes in `EXPORT_MANIFEST.json`; the live-source identities are not claims that the public files have identical bytes.
+
+The private archive now contains the vendor JSON, run logs/lifecycle audits and snapshot/trace directories; this is newer evidence than the handoff's earlier note that return transfer was pending. No raw logs, images, state/action arrays or SDK artifacts are published here. The concise [machine-readable summary](../manifests/live_hybrid_20261116_summary.json) records aggregate evidence and source hashes. No independent video scoring was performed in this publication update.
+
+### Startup Failures and Observed Hold Behavior
+
+The archived sequence also contains **three camera-configuration exceptions** (`154207`, `154225`, `154244`, each zero policy chunks), a **health-request timeout** (`154310`, no lifecycle audit in the inspected archive), and a **cold-start guard rejection** (`154544`) before the four warmed-up successes. Thus **4/4 refers only to the warmed-up sequence**, not all launch records that day.
+
+During the cold-start attempt, inference took `1529.7 ms`; observation age reached `1693.4 ms`, exceeding the unchanged `800 ms` bound. The stale-observation guard rejected the candidate after one chunk. Exit Home was suppressed and the process entered its operator hold pause. The audit records `hold_pause_requested=true`, `hold_pause_kept_motors_enabled=true`, `home_called=false`, then an interrupted pause and motor disable during disconnect.
+
+This observes the software hold-pause path on an energized arm. It **does not certify a vendor stop/hold API, a hardware emergency-stop response, loaded-object hold, or arbitrary interruption recovery**: `safe_hold_verified` remains `false`, and the SDK has no exposed hold/stop method in the inspected report. Do not change that flag based on the visible pause alone.
+
+Two synthetic `/predict` warmups subsequently returned inference times `131.876 ms` and `115.782 ms` (round trips 157.0 ms and 127.7 ms), followed by the four successful runs. This supports a startup-readiness procedure, not bypassing freshness checks.
+
+### Remaining Validation
+
+- Matched same-session G5 A/B repetitions, rotated blocks and distractor scenes: **NOT RUN** for this Hybrid batch.
+- T3 continuous mid-flight splicing and live Guided RTC: **NOT RUN**; the measured prefetch mechanism remains settled HTTP prefetch.
+- Comprehensive hardware emergency-stop/loaded hold and failure recovery: **not established** by the single startup hold observation.
+- Three-object demo: D0–D1 software panel/mock tests reported 18/18 passed in a separate staging tree; real executor integration and D2–D5, external VLM planning and Lego sorting remain **NOT RUN**. That module is not included in this export.
 
 ---
 

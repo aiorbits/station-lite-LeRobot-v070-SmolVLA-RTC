@@ -1,0 +1,152 @@
+{
+  "schema": "station_lite_hybrid_live_summary_v1",
+  "date": "2026-11-16",
+  "timezone": "Asia/Singapore",
+  "evidence_basis": "Operator physical outcome plus locally archived logs, lifecycle JSON and CAN-isolated vendor report. Timing values from handoff/transcript summary; no independent video scoring in this publication task.",
+  "success_denominator": "Four consecutive warmed-up single-yellow-block runs only; startup failures are separately reported.",
+  "timing_definition": {
+    "start": "startup Home complete",
+    "strategy_end": "six-chunk policy loop complete",
+    "longer_cycle_end": "exit Home complete",
+    "excluded": "initial startup homing and final process teardown"
+  },
+  "runs": [
+    {
+      "run_id": "right7_v070_hybrid_R2_yellow_20261116_154826",
+      "cell": "R2",
+      "target_color": "yellow",
+      "operator_reported_grasp_and_place_success": true,
+      "exit_reason": "normal_completion",
+      "sent_chunks": 6,
+      "strategy_cycle_s": 27.9,
+      "cycle_including_post_placement_lift_and_exit_home_s": 34.68,
+      "pure_commanded_motion_s_from_handoff": 22.396,
+      "direct_transport_points": 21,
+      "direct_transport_duration_s": 2.333,
+      "prefetch_hits": 4,
+      "prefetch_requests": 4,
+      "placement_completed_runtime_flag": true,
+      "post_placement_lift_succeeded": true,
+      "home_called": true,
+      "safe_hold_verified": false,
+      "private_log_sha256": "1deeb60f88fbb7541881e7dac1bc8e20627aa1dec1709970a672d053a821051a",
+      "private_lifecycle_sha256": "a7845bf7eecdc3a75c7c4e6113f69f8664a0ef331e5cba219e90c707ba0539df"
+    },
+    {
+      "run_id": "right7_v070_hybrid_R2_yellow_20261116_154927",
+      "cell": "R2",
+      "target_color": "yellow",
+      "operator_reported_grasp_and_place_success": true,
+      "exit_reason": "normal_completion",
+      "sent_chunks": 6,
+      "strategy_cycle_s": 27.92,
+      "cycle_including_post_placement_lift_and_exit_home_s": 34.68,
+      "pure_commanded_motion_s_from_handoff": 22.634,
+      "direct_transport_points": 21,
+      "direct_transport_duration_s": 2.333,
+      "prefetch_hits": 4,
+      "prefetch_requests": 4,
+      "placement_completed_runtime_flag": true,
+      "post_placement_lift_succeeded": true,
+      "home_called": true,
+      "safe_hold_verified": false,
+      "private_log_sha256": "7f4ddbe963f9b8223b5db0727a43ab15e3b25b1b0664864c115ef2fd60060073",
+      "private_lifecycle_sha256": "35f83ac1ecdd04c4e3d406e96742574e1e59e83e84b053af708b639b4ccf9234"
+    },
+    {
+      "run_id": "right7_v070_hybrid_R2_yellow_20261116_155030",
+      "cell": "R2",
+      "target_color": "yellow",
+      "operator_reported_grasp_and_place_success": true,
+      "exit_reason": "normal_completion",
+      "sent_chunks": 6,
+      "strategy_cycle_s": 26.77,
+      "cycle_including_post_placement_lift_and_exit_home_s": 33.51,
+      "pure_commanded_motion_s_from_handoff": 21.583,
+      "direct_transport_points": 21,
+      "direct_transport_duration_s": 2.333,
+      "prefetch_hits": 4,
+      "prefetch_requests": 4,
+      "placement_completed_runtime_flag": true,
+      "post_placement_lift_succeeded": true,
+      "home_called": true,
+      "safe_hold_verified": false,
+      "private_log_sha256": "2a1bf7b41501541139f6875a7535f0acaed2784b52ef1ca8307a3a6df5d4fd94",
+      "private_lifecycle_sha256": "cecc9c031f4ae89b5d06457670fccc5cde6b5a1ab793355273fec348e3396e48"
+    },
+    {
+      "run_id": "right7_v070_hybrid_R8_yellow_20261116_155531",
+      "cell": "R8",
+      "target_color": "yellow",
+      "operator_reported_grasp_and_place_success": true,
+      "exit_reason": "normal_completion",
+      "sent_chunks": 6,
+      "strategy_cycle_s": 28.9,
+      "cycle_including_post_placement_lift_and_exit_home_s": 35.64,
+      "pure_commanded_motion_s_from_handoff": 23.488,
+      "direct_transport_points": 31,
+      "direct_transport_duration_s": 3.444,
+      "prefetch_hits": 4,
+      "prefetch_requests": 4,
+      "placement_completed_runtime_flag": true,
+      "post_placement_lift_succeeded": true,
+      "home_called": true,
+      "safe_hold_verified": false,
+      "private_log_sha256": "427ddb5ae1d450598d961178657de706c8db6302e3d436fc9816eb57171044b6",
+      "private_lifecycle_sha256": "ade8ca501fef5a08c7080bfc84478de1e787a5879b1327e0abdd6f2275a3668d"
+    }
+  ],
+  "sdk_dry_run": {
+    "schema": "v070_g4_sdk_dryrun_report_v1",
+    "input_sha256": "282d5eec862f314cca9a5d7b108dcf71528f428695a983c658fa83ae1772806c",
+    "sdk_version": "0.1.9",
+    "hardware_connected": false,
+    "interfaces": [
+      "lo"
+    ],
+    "cases_total": 13,
+    "cases_passed": 13,
+    "cases_failed": 0,
+    "all_passed": true,
+    "cleanup_returned": true
+  },
+  "private_sdk_report_sha256": "2dd301bac00659ac71f14183c31821e8303d01f3858bb5bcfce7fa04d11d4087",
+  "original_live_source_sha256": {
+    "station_lite_smolvla_right7_guarded.py": "cabdc343b44e8768afd05ff75f0d69599f2d269b7dee3d3b629312ec842bf646",
+    "build_grasp_replay_cases.py": "3b08bdf8aeb0839ef2b0ef7983cf345bf182744075444bc98b2e92dabbb899b3"
+  },
+  "public_source_note": "De-privatized export hashes are recorded separately in EXPORT_MANIFEST.json.",
+  "startup_records": {
+    "camera_configuration_exceptions": [
+      "20261116_154207",
+      "20261116_154225",
+      "20261116_154244"
+    ],
+    "health_request_timeout": "20261116_154310",
+    "stale_observation_rejection": {
+      "run": "20261116_154544",
+      "inference_ms": 1529.7,
+      "observation_age_ms": 1693.4,
+      "age_limit_ms": 800,
+      "sent_chunks": 1,
+      "hold_pause_requested": true,
+      "hold_pause_kept_motors_enabled": true,
+      "hold_pause_interrupted": true,
+      "hold_pause_confirmed": false,
+      "home_called": false,
+      "safe_hold_verified": false
+    }
+  },
+  "warmup_inference_ms": [
+    131.876,
+    115.782
+  ],
+  "unvalidated": [
+    "matched same-session G5 A/B",
+    "rotated/distractor Hybrid scenes",
+    "T3 mid-flight splicing",
+    "live Guided RTC",
+    "comprehensive physical emergency-stop and loaded-hold validation",
+    "D2-D5 real three-object demo integration and Lego sorting"
+  ]
+}
