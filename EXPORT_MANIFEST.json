@@ -1,10 +1,11 @@
 {
   "bundle": "station-lite-LeRobot-v070-SmolVLA-RTC",
+  "release_version": "v1.0",
   "repository": "https://github.com/aiorbits/station-lite-LeRobot-v070-SmolVLA-RTC",
   "profile": "public_deprivatized",
   "hardware_connected": false,
-  "file_count": 30,
-  "total_bytes": 777629,
+  "file_count": 54,
+  "total_bytes": 1214778,
   "files": [
     {
       "path": ".gitignore",
@@ -13,13 +14,13 @@
     },
     {
       "path": "README.md",
-      "bytes": 9776,
-      "sha256": "9fc5b87f63179fe248cafa8dff0dc5d2966897538c1e714657d5dc61fa87af20"
+      "bytes": 11353,
+      "sha256": "8615ecd653dd4753bb59d303220514ccf53da40cc911e586393f1b6064ac6aa8"
     },
     {
       "path": "docs/DEPLOYMENT_GUIDE.md",
-      "bytes": 7769,
-      "sha256": "62d76a142c821edb4e8f8067a4c1ba19686390b018f35f2db74481195bff124b"
+      "bytes": 8990,
+      "sha256": "7c048819a1f1cd9a389dbaddd828630b60331ca1cc64499e07b095d3316bbe50"
     },
     {
       "path": "docs/METHODS_AND_RTC_ARCHITECTURE.md",
@@ -33,13 +34,23 @@
     },
     {
       "path": "docs/RESULTS_AND_REPRODUCIBILITY.md",
-      "bytes": 9645,
-      "sha256": "aecb0b58ca6d57c47a23b4037ddcb676a92e08512f4403c1b657110a36ae6b5e"
+      "bytes": 12229,
+      "sha256": "3de3b5999cf37a7d71e778e08ed5f387d273d802be9a92ac27bbd214b26d8957"
     },
     {
       "path": "manifests/environment_snapshot.json",
       "bytes": 2417,
       "sha256": "9be6de95375a9f3dfb17c370d380583c343f061eecab61087fa578ad705e7231"
+    },
+    {
+      "path": "manifests/live_hybrid_20261116_summary.json",
+      "bytes": 6092,
+      "sha256": "ef26408ee51f2d11b48cf641971c6d0fd9bc87fcefba1e99081a07416c80a4f5"
+    },
+    {
+      "path": "manifests/live_multiblock_20261116_summary.json",
+      "bytes": 4746,
+      "sha256": "10fd71c4b8af32b98e920a4c2f7bb96985f35b1304a530cf0a5c121b0f676531"
     },
     {
       "path": "manifests/runtime_profile.json",
@@ -127,6 +138,116 @@
       "sha256": "e72c32679027e1fa711aaffd25e1210781d29dd5181615cb08209400df8ee272"
     },
     {
+      "path": "src/v070_demo/__init__.py",
+      "bytes": 234,
+      "sha256": "cfd23b75174c7c06b8f2c498cea4b95cdb9074699d5a2715137196610d158260"
+    },
+    {
+      "path": "src/v070_demo/candidate_bridge.py",
+      "bytes": 21263,
+      "sha256": "d3869474eb394233e1f1420dbe1dc3473d2a178a01aa850a4a6c2923a58651ab"
+    },
+    {
+      "path": "src/v070_demo/candidate_import.py",
+      "bytes": 2427,
+      "sha256": "2b0f88fec4d6db8c0e598a565b1a015704990edd278f26bd3be74b3edcddff7e"
+    },
+    {
+      "path": "src/v070_demo/contracts.py",
+      "bytes": 6599,
+      "sha256": "ae78737533d1d5c7681c3a587fcb155b037c7ee0e6bd245d3fe641959b137893"
+    },
+    {
+      "path": "src/v070_demo/event_logger.py",
+      "bytes": 1431,
+      "sha256": "3ffb48d0a72433ee58c3b1de87c5a8b57059d5935c2477823a5beeb4e3d3c93d"
+    },
+    {
+      "path": "src/v070_demo/evidence_verifier.py",
+      "bytes": 7778,
+      "sha256": "b94163d22f5a1f7df96c0a7c9e1176027d55c22d9c3cb6d7a461da8b843f4665"
+    },
+    {
+      "path": "src/v070_demo/executor_bridge.py",
+      "bytes": 22442,
+      "sha256": "812d85651b889f8631ac6ecd62653c1fa1536e2d6644219a5a2a24b3dc5c33dd"
+    },
+    {
+      "path": "src/v070_demo/live_robot_runner.py",
+      "bytes": 76038,
+      "sha256": "706e1f113924c7fda83ec0572b2ee48e898148baa5026d54d80b413d9caf5fe2"
+    },
+    {
+      "path": "src/v070_demo/perception_adapter.py",
+      "bytes": 7619,
+      "sha256": "8d00ca5d9b4c6137ba5b6437b4c26bec4fa8264e8ea5d41cd602525295e53338"
+    },
+    {
+      "path": "src/v070_demo/run_panel.py",
+      "bytes": 8475,
+      "sha256": "15eecf85515b3019bd3163699fbf03038ac30264b1e7ccc969fee7d0b6a970d6"
+    },
+    {
+      "path": "src/v070_demo/selector.py",
+      "bytes": 5322,
+      "sha256": "79531707d2ae36f3dc32f572d138e2ba1d3201e917d740dbeb2b7aa18fb6ad1c"
+    },
+    {
+      "path": "src/v070_demo/session_service.py",
+      "bytes": 60961,
+      "sha256": "3982de469c4cc309c197fa7859620173e1df7f946336b8696606e4cd21347515"
+    },
+    {
+      "path": "src/v070_demo/task_parser.py",
+      "bytes": 11556,
+      "sha256": "88c29694ccb66a458de6fc9209edab5e888dfe58819a66987867166ba0fa3c68"
+    },
+    {
+      "path": "src/v070_demo/tests/__init__.py",
+      "bytes": 60,
+      "sha256": "6806c45a55edcdc57ae09e3867c0c28f72885c2003ac61b147376174e083a537"
+    },
+    {
+      "path": "src/v070_demo/tests/test_d0_contracts_and_parser.py",
+      "bytes": 7746,
+      "sha256": "4fc7cd034acd5c3c0a5b31808a87831aa4118b4315e9efa12c0f4684e992c6fc"
+    },
+    {
+      "path": "src/v070_demo/tests/test_d1_session_and_fault_injection.py",
+      "bytes": 19067,
+      "sha256": "e289b3593014af8683704f8c3721bd777ebacfe3c5d375643d320469f237fa31"
+    },
+    {
+      "path": "src/v070_demo/tests/test_d1_web_panel_http.py",
+      "bytes": 6639,
+      "sha256": "885bdab4a2ad9da91c3fb7d853ce6d918974a404ae0205d66aade291a2f04f85"
+    },
+    {
+      "path": "src/v070_demo/tests/test_d2_candidate_bridge.py",
+      "bytes": 7872,
+      "sha256": "d5d036b9c44c6b3acd994ec8a0b53569fb5e92bed6a940dc97a4ec23140e04aa"
+    },
+    {
+      "path": "src/v070_demo/tests/test_d2_perception_evidence_trajectory.py",
+      "bytes": 8275,
+      "sha256": "7f2c61a2eadf4ec98578596f5afcddda73e397e06efb5e1ab821e849aa799f03"
+    },
+    {
+      "path": "src/v070_demo/tests/test_d3_live_backend_and_safety.py",
+      "bytes": 96877,
+      "sha256": "d9b15aa6bfc85ead23253ab8e28e014e048c1e65808ebbf4db1ddd9a0756d968"
+    },
+    {
+      "path": "src/v070_demo/trajectory_planner.py",
+      "bytes": 20557,
+      "sha256": "3213057b59c8bf46c529b61dd83f425453b5a99c743050ce73209442e82d1064"
+    },
+    {
+      "path": "src/v070_demo/web_panel.py",
+      "bytes": 26963,
+      "sha256": "cdfea26c8192cfc853e490ec3f26847ced9d882c71ee3c7cfc215f02a93a74c7"
+    },
+    {
       "path": "tests/test_g3_contract.py",
       "bytes": 5852,
       "sha256": "73a07c4091c034b177398e630bd44408d8785ac02894e2b7e5f083b4ea0e1e7c"
@@ -147,14 +268,14 @@
       "sha256": "86af63add7ce5e571622a90b48b257f3af9cba2f5010163727a281df35460ce5"
     },
     {
+      "path": "tests/test_v070_demo_suite.py",
+      "bytes": 820,
+      "sha256": "fc625fd658375ea5cfc5d2e04313ccec5405acec7ea9f9752ccf9d41787b7b34"
+    },
+    {
       "path": "tests/test_v070_optimizations.py",
       "bytes": 44435,
       "sha256": "b8dadd9026aa2d1b53001b570de3b15a5927acfae7ae7986e9b4f1d52b3e0bcd"
-    },
-    {
-      "path": "manifests/live_hybrid_20261116_summary.json",
-      "bytes": 6092,
-      "sha256": "ef26408ee51f2d11b48cf641971c6d0fd9bc87fcefba1e99081a07416c80a4f5"
     }
   ]
 }

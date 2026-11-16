@@ -77,13 +77,29 @@ Two synthetic `/predict` warmups subsequently returned inference times `131.876 
 - Matched same-session G5 A/B repetitions, rotated blocks and distractor scenes: **NOT RUN** for this Hybrid batch.
 - T3 continuous mid-flight splicing and live Guided RTC: **NOT RUN**; the measured prefetch mechanism remains settled HTTP prefetch.
 - Comprehensive hardware emergency-stop/loaded hold and failure recovery: **not established** by the single startup hold observation.
-- Three-object demo: D0–D1 software panel/mock tests reported 18/18 passed in a separate staging tree; real executor integration and D2–D5, external VLM planning and Lego sorting remain **NOT RUN**. That module is not included in this export.
 
 ---
 
-## 4. Reproducing the Offline Benchmarks
+## 4. Multi-Object Closed-Loop Supervised Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.0)
 
-### 4.1 Guided RTC & NFE Perturbation Sweep (Requires CUDA + Local Checkpoints/Snapshots)
+In v1.0, `src/v070_demo/` connects the single-owner supervised web panel (`run_panel.py`, `web_panel.py`, `session_service.py`) to live robot hardware (`live_robot_runner.py`, `trajectory_planner.py`, `evidence_verifier.py`, `perception_adapter.py`):
+
+- **CAN-Isolated Dry-Run Admission**: D2 bundle (`10/10`, `input_sha256="bf0bdc76..."`) and D3 bundle (`7/7`, `input_sha256="a7aa4f3d..."`) both passed on the robot host with `all_passed=true`, `cleanup_returned=true`.
+- **Live Closed-Loop Trials (16 November 2026)**:
+  - **`r9` (`batch_8f2c1664`)**: First autonomous **`3/3` (`108.218 s`, `0` interventions)** across Red (`R9`), Yellow (`R2`), and Blue (`R7`).
+  - **`r12` (`batch_6f649714`)**: Autonomous **`3/3` (`110.644 s`, `0` interventions)** across Red (`R3`, `0.0264 m`), Blue (`R8`, `0.0351 m`), and edge-cell Yellow (`R1`, `0.0280 m`), followed by safe verified return to Home (`RETURNED_HOME_ON_COMPLETION`).
+- **Diagnostic Fixes Shipped in v1.0**:
+  1. *Brown-Pad Slot Separation & Target-Color Release Check (`r8`)*: Unified approach transport to calibrated slot 0, fanned release targets across a 26 mm pad-interior triangle, and enforced `require_target_color=True` in `verify_live_placement_outcome`.
+  2. *Lift/Transport Preload Tightening & Slip Recovery (`r10`)*: Increased `grasp_duration_s` (`2.0 -> 2.5 s`) and active clamping preload (`0.008 -> 0.0125 m`, ~5.3% tighter over the 85 mm stroke) applied immediately inside `_run_lifting_check()`, plus `CLEAR_OBS_POSE6` open retreat recovery (`block_slipped_recovered_empty`) when wrist vision confirms an empty drop.
+  3. *Aligned Hover Descent Fallback & Hand-Occlusion Retry (`r11`)*: Added `_plan_aligned_hover_descent` + wrist-OBB closure completion when an out-of-distribution non-red block stays strictly aligned (`|du|, |dv| <= 15 px`) at `z = 0.200 m` without policy `< 0.04` output, plus `2 x 0.6 s` release-check retries and `place_0` `fallback_target_obb` checks against transient operator hand skin HSV contour merges (`> 45,000 px`).
+  4. *`Scene 1` Strict Color Order (Post-`r12`, `r13` Live `NOT RUN`)*: Configured `scene_1_standard` default prompt and `selector.py` (`sort_mode="strict_order"`) to execute strictly in **`Red -> Yellow -> Blue`** text order while retaining `heuristic_ease` for `Clear the table` and explicit `easiest first` prompts; offline verified (`46/46` `v070_demo` unit tests pass), live `r13` **`NOT RUN`**.
+- **Remaining Stage D4–D5 Scope**: Mid-approach target switching (`D4`), full autonomous D5 stress sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**. Concise evidence fields are summarized in [live_multiblock_20261116_summary.json](../manifests/live_multiblock_20261116_summary.json).
+
+---
+
+## 5. Reproducing the Offline Benchmarks
+
+### 5.1 Guided RTC & NFE Perturbation Sweep (Requires CUDA + Local Checkpoints/Snapshots)
 
 ```bash
 python3 src/rtc_analysis/compare_guided_rtc.py \
@@ -98,7 +114,7 @@ python3 src/rtc_analysis/probe_rtc_perturb_nfe.py \
   --output ./outputs/rtc_perturb_nfe
 ```
 
-### 4.2 Right-Arm Dataset Conversion & Training (Requires CUDA + Raw Episodes)
+### 5.2 Right-Arm Dataset Conversion & Training (Requires CUDA + Raw Episodes)
 
 1. Convert approved dual-arm episodes (`station_lite_pose14_v1`, 35 train / 10 holdout split) to single-right-arm `right7` LeRobot dataset format:
 

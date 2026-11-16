@@ -1,0 +1,119 @@
+{
+  "schema": "station_lite_multiblock_live_summary_v1",
+  "release_version": "v1.0",
+  "date": "2026-11-16",
+  "timezone": "Asia/Singapore",
+  "evidence_basis": "Supervised live robot execution event streams (`task_events.jsonl`), operator outcomes, locally archived manifests/snapshots (`r5-r11`), and CAN-isolated vendor SDK dry-run reports (`unshare --net`).",
+  "sdk_dry_runs": [
+    {
+      "stage": "D2",
+      "schema": "v070_g4_sdk_dryrun_report_v1",
+      "input_sha256": "bf0bdc76ef776d0dbb56f5d27b1b5d2b623a232e997c7e1fe6f94f6e70475c0e",
+      "sdk_version": "0.1.9",
+      "hardware_connected": false,
+      "cases_total": 10,
+      "cases_passed": 10,
+      "cases_failed": 0,
+      "all_passed": true,
+      "cleanup_returned": true
+    },
+    {
+      "stage": "D3",
+      "schema": "v070_g4_sdk_dryrun_report_v1",
+      "input_sha256": "a7aa4f3d97a69207d51be8df4c29794f2cbe33e26fbd3e3fff55f0bc6d71f478",
+      "sdk_version": "0.1.9",
+      "hardware_connected": false,
+      "cases_total": 7,
+      "cases_passed": 7,
+      "cases_failed": 0,
+      "all_passed": true,
+      "cleanup_returned": true
+    }
+  ],
+  "completed_three_block_runs": [
+    {
+      "run_label": "r9",
+      "batch_id": "batch_8f2c1664",
+      "scene_id": "scene_1_standard",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 108.218,
+      "operator_interventions": 0,
+      "sequence": [
+        {
+          "object_id": "obj_red_R9_1",
+          "held_grip_m": 0.0274,
+          "release_grip_m": 0.0664,
+          "status": "PLACED_CONFIRMED"
+        },
+        {
+          "object_id": "obj_yellow_R2_1",
+          "held_grip_m": 0.0289,
+          "release_grip_m": 0.0664,
+          "status": "PLACED_CONFIRMED"
+        },
+        {
+          "object_id": "obj_blue_R7_1",
+          "held_grip_m": 0.0272,
+          "release_grip_m": 0.0661,
+          "status": "PLACED_CONFIRMED"
+        }
+      ],
+      "returned_home_on_completion": false,
+      "note": "First autonomous 3/3 three-block closed-loop completion; safe return-home added immediately after."
+    },
+    {
+      "run_label": "r12",
+      "batch_id": "batch_6f649714",
+      "scene_id": "scene_1_standard",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 110.644,
+      "operator_interventions": 0,
+      "sequence": [
+        {
+          "object_id": "obj_red_R3_1",
+          "held_grip_m": 0.0264,
+          "release_grip_m": 0.0664,
+          "status": "PLACED_CONFIRMED"
+        },
+        {
+          "object_id": "obj_blue_R8_1",
+          "held_grip_m": 0.0351,
+          "release_grip_m": 0.0678,
+          "status": "PLACED_CONFIRMED"
+        },
+        {
+          "object_id": "obj_yellow_R1_1",
+          "held_grip_m": 0.028,
+          "release_grip_m": 0.0664,
+          "status": "PLACED_CONFIRMED"
+        }
+      ],
+      "returned_home_on_completion": true,
+      "note": "Validated 12.5mm lift/transport clamping preload, aligned R1 yellow hover descent fallback, and safe batch-completion Home; selected R->B->Y under heuristic_ease, motivating strict_order default for scene_1_standard."
+    }
+  ],
+  "intermediate_diagnostics_and_fixes": [
+    {
+      "run_label": "r8",
+      "finding": "Yellow slot=1 placed onto white border label adjacent to brown pad; non-target-specific post-release check matched previously placed red block.",
+      "resolution": "Added brown-pad interior slot offsets (26mm triangle) applied strictly during release chunks and target_color filtering in verify_live_placement_outcome."
+    },
+    {
+      "run_label": "r10",
+      "finding": "Clear-table replenishment triggered block slippage during transport (0.0285..0.0302m -> 0.0219m/0.0235m) because lifting ran with zero inward preload prior to -8mm transport clamp.",
+      "resolution": "Increased grasp_duration_s to 2.5s, increased clamp_preload_m to 0.0125m applied immediately during vertical lift check, and added wrist-verified empty slip retreat to CLEAR_OBS_POSE6."
+    },
+    {
+      "run_label": "r11",
+      "finding": "Out-of-distribution yellow block at R1 aligned visually at z=0.200m (|du|,|dv|<=4.1px) without policy <0.04 closure; interactive operator hand reaching into pad merged brown/red HSV contours (>45000px) during release_check.",
+      "resolution": "Added _plan_aligned_hover_descent + calibrated wrist-OBB closure fallback when strictly centered, plus 2x0.6s transient occlusion retry and place_0 fallback_target_obb verification."
+    }
+  ],
+  "not_run_after_final_edits": [
+    "r13 live hardware verification of Scene 1 strict_order (Red -> Yellow -> Blue) after final edit",
+    "Stage D4 mid-approach switch",
+    "Stage D5 full demo harness",
+    "Matched same-session G5 A/B trials and continuous T3 mid-flight splicing"
+  ]
+}
+

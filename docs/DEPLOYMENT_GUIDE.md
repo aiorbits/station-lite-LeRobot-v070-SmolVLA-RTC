@@ -145,3 +145,34 @@ export ROBOT_PYTHON=/path/to/vendor_env/bin/python3
 
 Disable optional optimizations individually with `--no-direct-place-transport`, `--no-home-takeoff-hover`, `--no-fast-grid-approach`, `--no-trim-idle-tail`, or `--no-async-prefetch` to revert smoothly toward the legacy settled baseline.
 
+---
+
+## 3. Multi-Object Supervised Panel (`v070_demo.run_panel`, v1.0)
+
+After completing inference warmup (Section 2) and verifying Stage D3 CAN-isolated SDK dry-run admission (`--input "$D3_SDK_BUNDLE"` -> `"all_passed": true, "cleanup_returned": true`), launch the single-owner supervised web panel on `<ROBOT_HOST>`:
+
+```bash
+PYTHONPATH="./src" python3 -B -m v070_demo.run_panel \
+  --mode supervised \
+  --host 127.0.0.1 \
+  --port 8095 \
+  --server "http://<POLICY_HOST>:8011" \
+  --img-host 127.0.0.1 \
+  --dry-run-report /path/to/g4_demo_d3_sdk_dryrun_robot.json \
+  --expected-bundle-sha256 a7aa4f3d97a69207d51be8df4c29794f2cbe33e26fbd3e3fff55f0bc6d71f478 \
+  --expected-checkpoint "$SMOLVLA_CHECKPOINT" \
+  --expected-seed-mode fixed \
+  --use-clear-obs-retreat \
+  --batch-deadline-s 600 \
+  --admit-hardware \
+  --confirm-startup-home \
+  --confirm-exit-home \
+  --unsafe-exit-action confirm_before_disable \
+  --run-dir ./logs/demo_d3_run \
+  --snapshot-dir ./logs/demo_d3_run/snapshots \
+  --lifecycle-audit-json ./logs/demo_d3_run/lifecycle_audit.json
+```
+
+Use `--mode mock --host 127.0.0.1 --port 8095` to exercise the full panel UI and session state machine offline with zero robot or GPU dependencies.
+
+
