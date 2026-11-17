@@ -5,7 +5,7 @@
   "profile": "public_deprivatized",
   "hardware_connected": false,
   "file_count": 56,
-  "total_bytes": 1684698,
+  "total_bytes": 1684699,
   "files": [
     {
       "path": ".gitignore",
@@ -59,8 +59,8 @@
     },
     {
       "path": "manifests/live_multiblock_20261117_summary.json",
-      "bytes": 3362,
-      "sha256": "014c29f452c0b83e6487bf0c647abb36099cd1b2e987c7cc2bb3b1b63d02ee1d"
+      "bytes": 3363,
+      "sha256": "45c62e98fc812595a59a2754e644742c4fa82ec7dd05d7ac2fee9a291d985a25"
     },
     {
       "path": "manifests/runtime_profile.json",
