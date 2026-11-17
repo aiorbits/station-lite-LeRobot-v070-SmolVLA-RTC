@@ -116,6 +116,7 @@ class SessionService:
         self._cancel_requested = False
         self._close_requested = False
         self._batch_starting = False
+        self._returning_home = False
         self._worker: threading.Thread | None = None
         self._watchdog_thread: threading.Thread | None = None
         self._watchdog_stop = threading.Event()
@@ -366,6 +367,8 @@ class SessionService:
                 return self._handle_resume(cmd, now=now)
             if command_type == CommandType.CANCEL_BATCH:
                 return self._handle_cancel_batch(cmd, now=now)
+            if command_type == CommandType.RETURN_HOME:
+                return self._handle_return_home(cmd, now=now)
             if command_type == CommandType.CLOSE_SESSION:
                 return self._handle_close_session(cmd, now=now)
 
@@ -394,9 +397,9 @@ class SessionService:
             cmd.reason = parsed.reason
             return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
 
-        if self._batch_starting:
+        if self._batch_starting or self._returning_home:
             cmd.status = CommandStatus.REJECTED
-            cmd.reason = "batch_already_starting"
+            cmd.reason = "batch_already_starting" if self._batch_starting else "return_home_in_progress"
             return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
 
         self._batch_starting = True
@@ -545,10 +548,24 @@ class SessionService:
 
         cmd.status = CommandStatus.ACCEPTED_PENDING
         cmd.accepted_ts_mono = now
-        cmd.reason = (
-            "Accepted; waiting for empty-hand settled checkpoint before applying "
-            f"(current_phase={self.execution_phase.value})."
+        pre_grasp_ready = (
+            self.contact_state == ContactHeldState.EMPTY_CONFIRMED
+            and self.execution_phase
+            in (ExecutionPhase.IDLE, ExecutionPhase.OBSERVING, ExecutionPhase.APPROACHING_EMPTY, ExecutionPhase.DESCENDING_CONTACT)
         )
+        if pre_grasp_ready:
+            req_preempt = getattr(self.bridge, "request_pregrasp_preempt", None)
+            if callable(req_preempt):
+                req_preempt()
+            cmd.reason = (
+                "Accepted; switching at pre-grasp boundary before Chunk 3 GRASPING "
+                f"(current_phase={self.execution_phase.value})."
+            )
+        else:
+            cmd.reason = (
+                "Accepted; queued next after current block completes Chunk 3+ placement "
+                f"(current_phase={self.execution_phase.value})."
+            )
         self._pending_priority_cmd_id = cmd.command_id
         self._wake_event.set()
         return self._record_command(cmd, stream_kind="COMMAND_ACCEPTED_PENDING")
@@ -636,6 +653,64 @@ class SessionService:
         cmd.applied_generation = self.active_generation
         cmd.reason = "Batch cancellation requested; pending commands cancelled, physical state preserved."
         self._wake_event.set()
+        return self._record_command(cmd, stream_kind="COMMAND_APPLIED")
+
+    def _handle_return_home(self, cmd: CommandRecord, *, now: float) -> CommandRecord:
+        if self.session_state not in (SessionState.READY, SessionState.PAUSED):
+            cmd.status = CommandStatus.REJECTED
+            cmd.reason = f"return_home_disallowed_in_state:{self.session_state.value}"
+            return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
+        if self._worker is not None and self._worker.is_alive():
+            cmd.status = CommandStatus.REJECTED
+            cmd.reason = "cannot_return_home_while_batch_active"
+            return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
+        if self._batch_starting or self._returning_home:
+            cmd.status = CommandStatus.REJECTED
+            cmd.reason = "operation_already_in_progress"
+            return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
+
+        self._returning_home = True
+        self._lock.release()
+        try:
+            home_fn = getattr(self.bridge, "manual_return_home", None)
+            if callable(home_fn):
+                ok, err_c, err_d = home_fn()
+            else:
+                ok, err_c, err_d = True, None, "Home completed."
+        finally:
+            self._lock.acquire()
+            self._returning_home = False
+
+        done_now = self._clock()
+        self._last_heartbeat_mono = done_now
+        if self._close_requested or self.session_state in (SessionState.CLOSED, SessionState.FAULTED):
+            cmd.status = CommandStatus.CANCELLED
+            cmd.reason = "session_closed_during_return_home"
+            return self._record_command(cmd, stream_kind="COMMAND_CANCELLED")
+        if not ok:
+            cmd.status = CommandStatus.REJECTED
+            cmd.reason = f"{err_c}: {err_d}" if (err_c and err_d) else str(err_c or err_d or "return_home_rejected")
+            self._emit_event(
+                "task_events.jsonl",
+                "RETURN_HOME_REJECTED",
+                {"error_code": err_c, "detail": err_d},
+            )
+            return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
+
+        self.contact_state = ContactHeldState.EMPTY_CONFIRMED
+        self.execution_phase = ExecutionPhase.IDLE
+        self.current_object_id = None
+        self.session_state = SessionState.READY
+        cmd.status = CommandStatus.APPLIED
+        cmd.accepted_ts_mono = now
+        cmd.applied_ts_mono = done_now
+        cmd.applied_generation = self.active_generation
+        cmd.reason = err_d or "Returned safely to Home."
+        self._emit_event(
+            "task_events.jsonl",
+            "RETURNED_HOME_MANUAL",
+            {"reason": cmd.reason},
+        )
         return self._record_command(cmd, stream_kind="COMMAND_APPLIED")
 
     def _handle_close_session(self, cmd: CommandRecord, *, now: float) -> CommandRecord:
@@ -1025,6 +1100,9 @@ class SessionService:
         attempt_num: int,
     ) -> bool:
         """Run approach -> grasp -> lift check -> transport -> place -> release check. Returns True if batch ended."""
+        clr_preempt = getattr(self.bridge, "clear_pregrasp_preempt", None)
+        if callable(clr_preempt):
+            clr_preempt()
         for phase in OBJECT_EXEC_PHASES:
             with self._lock:
                 if not self._wait_if_paused_locked():
@@ -1119,6 +1197,54 @@ class SessionService:
 
                 if res.destination_slot is not None:
                     selected.destination_slot = res.destination_slot
+
+                # Safe pre-grasp preemption boundary: strictly before Chunk 3 GRASPING begins!
+                if (
+                    phase in (ExecutionPhase.APPROACHING_EMPTY, ExecutionPhase.DESCENDING_CONTACT)
+                    and self._pending_priority_cmd_id is not None
+                    and self.contact_state == ContactHeldState.EMPTY_CONFIRMED
+                    and not self._pause_requested
+                    and not self._cancel_requested
+                    and not self._close_requested
+                ):
+                    pending_cmd = self._commands_by_id.get(self._pending_priority_cmd_id)
+                    if pending_cmd is not None and pending_cmd.status == CommandStatus.ACCEPTED_PENDING:
+                        if phase == ExecutionPhase.DESCENDING_CONTACT:
+                            preempt_fn = getattr(self.bridge, "preempt_to_safe_hover", None)
+                            if callable(preempt_fn):
+                                self._lock.release()
+                                try:
+                                    ok_h, err_hc, err_hd = preempt_fn()
+                                finally:
+                                    self._lock.acquire()
+                                if not ok_h:
+                                    selected.status = ObjectState.NEEDS_OPERATOR
+                                    selected.rejection_reason = err_hc or "preempt_retract_failed"
+                                    self.operator_interventions += 1
+                                    self.intervention_reasons.append(f"{err_hc}:{selected.object_id}")
+                                    self.bridge.request_phase_hold(
+                                        current_phase=phase, reason=err_hc or "preempt_retract_failed"
+                                    )
+                                    self._finalize_batch_locked(
+                                        end_state=SessionState.PAUSED,
+                                        reason=err_hd or (err_hc or "preempt_retract_failed"),
+                                    )
+                                    return True
+                        selected.status = ObjectState.PENDING
+                        selected.attempt_count = max(0, selected.attempt_count - 1)
+                        self.current_object_id = None
+                        self.execution_phase = ExecutionPhase.CHECKPOINT_EMPTY_SETTLED
+                        self._emit_event(
+                            "task_events.jsonl",
+                            "PREEMPTED_BEFORE_GRASP",
+                            {
+                                "preempted_object_id": selected.object_id,
+                                "after_phase": phase.value,
+                                "before_phase": ExecutionPhase.GRASPING.value,
+                                "pending_command_id": pending_cmd.command_id,
+                            },
+                        )
+                        return False
 
                 if phase == ExecutionPhase.LIFTING_CHECK:
                     verdict, contact_state, evidence = evaluate_grasp_evidence(
@@ -1256,6 +1382,16 @@ class SessionService:
                 if self._owner_client_id is not None and not self._lease_expired
                 else 0.0
             )
+            if self.session_state not in (SessionState.RUNNING, SessionState.SWITCH_PENDING, SessionState.PAUSED, SessionState.PAUSE_PENDING):
+                switch_window = "IDLE"
+            elif (
+                self.contact_state == ContactHeldState.EMPTY_CONFIRMED
+                and self.execution_phase
+                in (ExecutionPhase.IDLE, ExecutionPhase.OBSERVING, ExecutionPhase.APPROACHING_EMPTY, ExecutionPhase.DESCENDING_CONTACT, ExecutionPhase.CHECKPOINT_EMPTY_SETTLED)
+            ):
+                switch_window = "PRE_GRASP_IMMEDIATE"
+            else:
+                switch_window = "HOLDING_QUEUED_NEXT"
             return {
                 "session_id": self.session_id,
                 "batch_id": self.batch_id,
@@ -1264,6 +1400,9 @@ class SessionService:
                 "hardware_admission": self.bridge.admission_state.value,
                 "contact_held_state": self.contact_state.value,
                 "execution_phase": self.execution_phase.value,
+                "switch_window": switch_window,
+                "worker_active": bool(self._worker is not None and self._worker.is_alive()),
+                "returning_home": self._returning_home,
                 "active_generation": self.active_generation,
                 "active_instruction": self.active_instruction,
                 "pending_instruction": pending_cmd,

@@ -758,9 +758,7 @@ class TestD3LiveBackendAndSafety(unittest.TestCase):
                 },
             )
             with self.assertRaises(PermissionError):
-                # Isolate the missing-admission check from the separate TTY
-                # lifecycle guard so this test also runs in headless CI.
-                run_panel_main(["--mode", "supervised"], hold_confirm_fn=lambda _audit: None)
+                run_panel_main(["--mode", "supervised"])
             # Explicitly test non-TTY refusal when --unsafe-exit-action confirm_before_disable is selected.
             orig_stdin = __import__("sys").stdin
             try:
@@ -1997,6 +1995,213 @@ class TestD3LiveBackendAndSafety(unittest.TestCase):
                 self.assertEqual(snap["metrics"]["headline_score"], "3/3")
                 self.assertEqual(hw.state["placed_colors"], ["red", "yellow", "blue"])
                 self.assertTrue(any(ev["kind"] == "RETURNED_HOME_ON_COMPLETION" for ev in snap["events"]))
+            finally:
+                bridge.shutdown_hardware(safe_normal_completion=True)
+                srv.shutdown()
+                srv.server_close()
+
+    def test_26_pregrasp_priority_preempts_before_chunk3_grasping(self) -> None:
+        """Clicking priority before Chunk 3 GRASPING preempts safely; at GRASPING it queues after placement."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            rep = _write_dryrun_report(tmp_path / "ok.json")
+            hw = _SimulatedStationHardware({"R3": "red", "R1": "yellow", "R8": "blue"})
+            srv = _start_mock_right7_server(_MockServerState(hw, checkpoint=_guarded.EXPECTED_CHECKPOINT))
+            port = srv.server_address[1]
+            try:
+                cfg = LiveHardwareConfig(
+                    server_url=f"http://127.0.0.1:{port}",
+                    dry_run_report_path=rep,
+                    operator_admitted=True,
+                    confirm_startup_home=True,
+                    confirm_exit_home=True,
+                    return_home_on_batch_complete=True,
+                    unsafe_exit_action="immediate_disable",
+                    use_clear_obs_retreat=True,
+                    robot_init_settle_s=0.0,
+                    settle_margin_s=0.0,
+                    settle_drift_sleep_s=0.0,
+                    chunk_wait_slice_s=0.01,
+                    grasp_duration_s=0.05,
+                    speed=10.0,
+                    takeoff_speed=10.0,
+                    aerial_approach_speed=10.0,
+                    approach_speed=10.0,
+                    transport_speed=10.0,
+                    place_speed=10.0,
+                )
+                bridge = LiveRight7HardwareBridge(
+                    config=cfg,
+                    robot_cls=hw.make_robot_cls(),
+                    image_client_cls=hw.make_image_client_cls(),
+                    sleep_fn=lambda _s: None,
+                )
+                bridge.admit_hardware()
+                from v070_demo.contracts import ExecutionPhase
+                from v070_demo.event_logger import DemoRunLogger
+
+                svc = SessionService(bridge, logger=DemoRunLogger(tmp_path / "run_pregrasp_preempt"))
+                svc.start_session("op1", scene_id="scene_1_standard")
+                ep = svc.get_snapshot()["lease"]["lease_epoch"]
+
+                observed_windows: dict[str, str] = {}
+                orig_run_phase_step = bridge.run_phase_step
+                fired = {"red_descend": False, "blue_grasp": False}
+
+                def hooked_run_phase_step(*, obj, phase, task_generation, attempt_number, now_mono):
+                    res = orig_run_phase_step(
+                        obj=obj,
+                        phase=phase,
+                        task_generation=task_generation,
+                        attempt_number=attempt_number,
+                        now_mono=now_mono,
+                    )
+                    if obj.color == "red" and phase == ExecutionPhase.DESCENDING_CONTACT and not fired["red_descend"]:
+                        fired["red_descend"] = True
+                        observed_windows["red_descend"] = svc.get_snapshot()["switch_window"]
+                        pri_rec = svc.submit_command(
+                            client_id="op1",
+                            command_id="pri_blue_preempt",
+                            command_type=CommandType.UPDATE_PRIORITY,
+                            raw_text="Prioritize blue for the remaining objects",
+                            scope="remaining_objects",
+                            lease_epoch=ep,
+                            expected_active_generation=task_generation,
+                        )
+                        self.assertEqual(pri_rec.status, CommandStatus.ACCEPTED_PENDING)
+                    elif obj.color == "blue" and phase == ExecutionPhase.GRASPING and not fired["blue_grasp"]:
+                        fired["blue_grasp"] = True
+                        observed_windows["blue_grasp"] = svc.get_snapshot()["switch_window"]
+                        pri_rec = svc.submit_command(
+                            client_id="op1",
+                            command_id="pri_yellow_queued",
+                            command_type=CommandType.UPDATE_PRIORITY,
+                            raw_text="Prioritize yellow for the remaining objects",
+                            scope="remaining_objects",
+                            lease_epoch=ep,
+                            expected_active_generation=task_generation,
+                        )
+                        self.assertEqual(pri_rec.status, CommandStatus.ACCEPTED_PENDING)
+                    return res
+
+                bridge.run_phase_step = hooked_run_phase_step  # type: ignore[method-assign]
+                rec = svc.submit_command(
+                    client_id="op1",
+                    command_id="scene1_preempt_1",
+                    command_type=CommandType.START_BATCH,
+                    raw_text=(
+                        "Pick up the three wooden blocks (red, yellow, and blue) in exact order and place them "
+                        "on the brown target area. Re-observe and retry on empty grasp (max 2 attempts per block)."
+                    ),
+                    scene_id="scene_1_standard",
+                    lease_epoch=ep,
+                )
+                self.assertEqual(rec.status, CommandStatus.APPLIED)
+                deadline = time.monotonic() + 25.0
+                while time.monotonic() < deadline:
+                    svc.heartbeat("op1", ep)
+                    cur = svc.get_snapshot()
+                    if (
+                        cur["session_state"] == SessionState.READY.value
+                        and cur["metrics"]["completed_count"] == 3
+                        and svc._worker is not None
+                        and not svc._worker.is_alive()
+                    ):
+                        break
+                    time.sleep(0.03)
+                snap = svc.get_snapshot()
+                self.assertEqual(observed_windows["red_descend"], "PRE_GRASP_IMMEDIATE")
+                self.assertEqual(observed_windows["blue_grasp"], "HOLDING_QUEUED_NEXT")
+                self.assertEqual(snap["session_state"], SessionState.READY.value)
+                self.assertEqual(snap["metrics"]["headline_score"], "3/3")
+                self.assertEqual(snap["metrics"]["operator_interventions"], 0)
+                self.assertEqual(hw.state["placed_colors"], ["blue", "yellow", "red"])
+                preempt_events = [ev for ev in snap["events"] if ev["kind"] == "PREEMPTED_BEFORE_GRASP"]
+                self.assertEqual(len(preempt_events), 1)
+                self.assertEqual(preempt_events[0]["preempted_object_id"], "obj_red_R3_1")
+                self.assertEqual(preempt_events[0]["after_phase"], "DESCENDING_CONTACT")
+                self.assertEqual(preempt_events[0]["before_phase"], "GRASPING")
+            finally:
+                bridge.shutdown_hardware(safe_normal_completion=True)
+                srv.shutdown()
+                srv.server_close()
+
+    def test_27_manual_return_home_button_safety_and_recovery_to_ready(self) -> None:
+        """RETURN_HOME rejects closed gripper (<45mm), and when open recovers PAUSED->READY safely via lift+go_home."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            rep = _write_dryrun_report(tmp_path / "ok.json")
+            hw = _SimulatedStationHardware({"R3": "red"})
+            srv = _start_mock_right7_server(_MockServerState(hw, checkpoint=_guarded.EXPECTED_CHECKPOINT))
+            port = srv.server_address[1]
+            try:
+                cfg = LiveHardwareConfig(
+                    server_url=f"http://127.0.0.1:{port}",
+                    dry_run_report_path=rep,
+                    operator_admitted=True,
+                    confirm_startup_home=True,
+                    confirm_exit_home=True,
+                    return_home_on_batch_complete=False,
+                    unsafe_exit_action="immediate_disable",
+                    robot_init_settle_s=0.0,
+                    settle_margin_s=0.0,
+                    settle_drift_sleep_s=0.0,
+                    chunk_wait_slice_s=0.01,
+                    grasp_duration_s=0.05,
+                    speed=10.0,
+                    takeoff_speed=10.0,
+                    aerial_approach_speed=10.0,
+                    approach_speed=10.0,
+                    transport_speed=10.0,
+                    place_speed=10.0,
+                )
+                bridge = LiveRight7HardwareBridge(
+                    config=cfg,
+                    robot_cls=hw.make_robot_cls(),
+                    image_client_cls=hw.make_image_client_cls(),
+                    sleep_fn=lambda _s: None,
+                )
+                bridge.admit_hardware()
+                bridge._ensure_hardware_attached()
+                from v070_demo.contracts import ContactHeldState
+                from v070_demo.event_logger import DemoRunLogger
+
+                svc = SessionService(bridge, logger=DemoRunLogger(tmp_path / "run_manual_home"))
+                svc.start_session("op1", scene_id="scene_1_standard")
+                ep = svc.get_snapshot()["lease"]["lease_epoch"]
+                home_calls_before = hw.state["go_home_calls"]
+
+                # Simulate paused-after-placement_unconfirmed with gripper accidentally closed (< 45mm): MUST REJECT
+                with svc._lock:
+                    svc.session_state = SessionState.PAUSED
+                    svc.contact_state = ContactHeldState.HELD_UNCERTAIN
+                bridge._holding_object = True
+                hw.state["grip_m"] = 0.028
+                rec_reject = svc.submit_command(
+                    client_id="op1",
+                    command_id="home_reject_closed",
+                    command_type=CommandType.RETURN_HOME,
+                    lease_epoch=ep,
+                )
+                self.assertEqual(rec_reject.status, CommandStatus.REJECTED)
+                self.assertIn("unsafe_home_gripper_closed", rec_reject.reason)
+                self.assertEqual(hw.state["go_home_calls"], home_calls_before)
+
+                # Now simulate post-release open gripper (>45mm) at low hover z=0.165m: lift + go_home + PAUSED->READY
+                hw.state["grip_m"] = 0.068
+                hw.state["pose6"] = np.array([0.348, 0.216, 0.165, 0.0, 0.0, 0.0], dtype=float)
+                rec_ok = svc.submit_command(
+                    client_id="op1",
+                    command_id="home_allow_open",
+                    command_type=CommandType.RETURN_HOME,
+                    lease_epoch=ep,
+                )
+                self.assertEqual(rec_ok.status, CommandStatus.APPLIED)
+                snap = svc.get_snapshot()
+                self.assertEqual(snap["session_state"], SessionState.READY.value)
+                self.assertEqual(snap["contact_held_state"], ContactHeldState.EMPTY_CONFIRMED.value)
+                self.assertEqual(hw.state["go_home_calls"], home_calls_before + 1)
+                self.assertTrue(any(ev["kind"] == "RETURNED_HOME_MANUAL" for ev in snap["events"]))
             finally:
                 bridge.shutdown_hardware(safe_normal_completion=True)
                 srv.shutdown()

@@ -80,20 +80,28 @@ Two synthetic `/predict` warmups subsequently returned inference times `131.876 
 
 ---
 
-## 4. Multi-Object Closed-Loop Supervised Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.0)
+## 4. Multi-Object Closed-Loop Supervised Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.0–v1.1)
 
-In v1.0, `src/v070_demo/` connects the single-owner supervised web panel (`run_panel.py`, `web_panel.py`, `session_service.py`) to live robot hardware (`live_robot_runner.py`, `trajectory_planner.py`, `evidence_verifier.py`, `perception_adapter.py`):
+In v1.0–v1.1, `src/v070_demo/` connects the single-owner supervised web panel (`run_panel.py`, `web_panel.py`, `session_service.py`) to live robot hardware (`live_robot_runner.py`, `trajectory_planner.py`, `evidence_verifier.py`, `perception_adapter.py`):
 
 - **CAN-Isolated Dry-Run Admission**: D2 bundle (`10/10`, `input_sha256="bf0bdc76..."`) and D3 bundle (`7/7`, `input_sha256="a7aa4f3d..."`) both passed on the robot host with `all_passed=true`, `cleanup_returned=true`.
-- **Live Closed-Loop Trials (16 November 2026)**:
+- **v1.0 Live Closed-Loop Trials (16 November 2026)**:
   - **`r9` (`batch_8f2c1664`)**: First autonomous **`3/3` (`108.218 s`, `0` interventions)** across Red (`R9`), Yellow (`R2`), and Blue (`R7`).
   - **`r12` (`batch_6f649714`)**: Autonomous **`3/3` (`110.644 s`, `0` interventions)** across Red (`R3`, `0.0264 m`), Blue (`R8`, `0.0351 m`), and edge-cell Yellow (`R1`, `0.0280 m`), followed by safe verified return to Home (`RETURNED_HOME_ON_COMPLETION`).
-- **Diagnostic Fixes Shipped in v1.0**:
+- **v1.1 Live Verification & Panel Upgrades (17 November 2026, `r13` & `r14`, [live_multiblock_20261117_summary.json](../manifests/live_multiblock_20261117_summary.json))**:
+  - **`r14` `Scene 1` Strict Order (`batch_32f4b3aa`)**: First live confirmation of default **`Red -> Yellow -> Blue`** sequence (`obj_red_R4_1` -> `obj_yellow_R8_1` -> `obj_blue_R3_1`), **`3/3` in `118.744 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION`.
+  - **`r13` & `r14` In-Flight Priority Override (`batch_da8e4b5c` & `batch_a9f597a2`)**: Mid-batch clicks to prioritize `Blue` during `PLACING` (`HOLDING_QUEUED_NEXT`) switched cleanly into `Gen 2` after empty-hand checkpoint settle (`5.50 s` and `9.83 s` boundary latencies) and completed **`Red -> Blue -> Yellow` (`3/3` in `113.603 s` and `118.582 s`, `0` interventions)** with `RETURNED_HOME_ON_COMPLETION`.
+  - **`r14` `Clear the table` (`batch_e88cd039`)**: Completed continuous table replenishment (`obj_yellow_R6_1` -> `TABLE_REENQUEUED` -> `obj_yellow_R6_1_c2` -> `obj_red_R1_1`), **`3/3` in `120.938 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION`.
+  - **`r13` Initial Batch Safe Halt (`batch_d0c27c84`)**: Placed Red (`R6`) and Yellow (`R2`), then safely paused (`2/3`, `99.979 s`) when final Blue (`R7`) triggered `placement_unconfirmed` without unsafe auto-Home, prompting the guarded **`Return Home (Empty Gripper)`** operator recovery control shipped in v1.1.
+- **Diagnostic Fixes & v1.1 Additions**:
   1. *Brown-Pad Slot Separation & Target-Color Release Check (`r8`)*: Unified approach transport to calibrated slot 0, fanned release targets across a 26 mm pad-interior triangle, and enforced `require_target_color=True` in `verify_live_placement_outcome`.
   2. *Lift/Transport Preload Tightening & Slip Recovery (`r10`)*: Increased `grasp_duration_s` (`2.0 -> 2.5 s`) and active clamping preload (`0.008 -> 0.0125 m`, ~5.3% tighter over the 85 mm stroke) applied immediately inside `_run_lifting_check()`, plus `CLEAR_OBS_POSE6` open retreat recovery (`block_slipped_recovered_empty`) when wrist vision confirms an empty drop.
   3. *Aligned Hover Descent Fallback & Hand-Occlusion Retry (`r11`)*: Added `_plan_aligned_hover_descent` + wrist-OBB closure completion when an out-of-distribution non-red block stays strictly aligned (`|du|, |dv| <= 15 px`) at `z = 0.200 m` without policy `< 0.04` output, plus `2 x 0.6 s` release-check retries and `place_0` `fallback_target_obb` checks against transient operator hand skin HSV contour merges (`> 45,000 px`).
-  4. *`Scene 1` Strict Color Order (Post-`r12`, `r13` Live `NOT RUN`)*: Configured `scene_1_standard` default prompt and `selector.py` (`sort_mode="strict_order"`) to execute strictly in **`Red -> Yellow -> Blue`** text order while retaining `heuristic_ease` for `Clear the table` and explicit `easiest first` prompts; offline verified (`46/46` `v070_demo` unit tests pass), live `r13` **`NOT RUN`**.
-- **Remaining Stage D4–D5 Scope**: Mid-approach target switching (`D4`), full autonomous D5 stress sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**. Concise evidence fields are summarized in [live_multiblock_20261116_summary.json](../manifests/live_multiblock_20261116_summary.json).
+  4. *1-Click Priority UI, Pre-Chunk-3 Switch Boundary, 3×3 Grid Canvas, & Guarded `Return Home` (v1.1)*:
+     - Replaced text-box priority inputs with 1-click **`Red` / `Yellow` / `Blue`** buttons and a live **Chunk-3 (`GRASPING`) Switch Window** pill (`PRE_GRASP_IMMEDIATE` lifts open gripper safely to hover and switches before `GRASPING`; `HOLDING_QUEUED_NEXT` queues cleanly until post-placement settle once Chunk 3+ begins). Note: `PREEMPTED_BEFORE_GRASP` is verified in offline unit test `test_26`, while live `r13`/`r14` priority clicks occurred post-grasp (`PLACING`).
+     - Rewrote `renderCanvas()` with explicit **`White Workspace Grid (R1–R9)`** and **`Brown Target Zone (Slot 0–2)`** mapping, fixed-width table wrapping, and snapshot event deduplication (`seenEventSeqs`).
+     - Added **`CommandType.RETURN_HOME`** (`Return Home (Empty Gripper)` button), verified in offline `test_27` to reject closed grippers (`< 45 mm`), lift low Z before `go_home()`, and reset `PAUSED -> READY`.
+- **Remaining Stage D4–D5 & Live Preemption Scope**: Live mid-approach pre-Chunk-3 priority preemption trial, full Stage D4 mid-trajectory switching, Stage D5 stress sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**. Concise evidence fields are summarized in [live_multiblock_20261116_summary.json](../manifests/live_multiblock_20261116_summary.json) and [live_multiblock_20261117_summary.json](../manifests/live_multiblock_20261117_summary.json).
 
 ---
 

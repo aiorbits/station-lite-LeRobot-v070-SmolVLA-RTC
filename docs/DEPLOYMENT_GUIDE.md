@@ -147,7 +147,7 @@ Disable optional optimizations individually with `--no-direct-place-transport`, 
 
 ---
 
-## 3. Multi-Object Supervised Panel (`v070_demo.run_panel`, v1.0)
+## 3. Multi-Object Supervised Panel (`v070_demo.run_panel`, v1.1)
 
 After completing inference warmup (Section 2) and verifying Stage D3 CAN-isolated SDK dry-run admission (`--input "$D3_SDK_BUNDLE"` -> `"all_passed": true, "cleanup_returned": true`), launch the single-owner supervised web panel on `<ROBOT_HOST>`:
 
@@ -173,6 +173,6 @@ PYTHONPATH="./src" python3 -B -m v070_demo.run_panel \
   --lifecycle-audit-json ./logs/demo_d3_run/lifecycle_audit.json
 ```
 
-Use `--mode mock --host 127.0.0.1 --port 8095` to exercise the full panel UI and session state machine offline with zero robot or GPU dependencies.
+Use `--mode mock --host 127.0.0.1 --port 8095` to exercise the full panel UI (3x3 `R1–R9` canvas, 1-click `Red/Yellow/Blue` priority switching with live Chunk-3 Switch Window pill, and guarded `Return Home (Empty Gripper)`) offline with zero robot or GPU dependencies. Note that `Return Home (Empty Gripper)` strictly requires an idle batch thread, `--confirm-exit-home`, and measured open gripper width `>= 0.045 m`.
 
 

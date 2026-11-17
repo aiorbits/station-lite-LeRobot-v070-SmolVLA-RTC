@@ -330,6 +330,22 @@ class ExecutionBridge(ABC):
         """Optional guarded return-to-home after safe empty-handed batch completion."""
         return False, None, None
 
+    def manual_return_home(self) -> tuple[bool, str | None, str | None]:
+        """Optional explicit operator Home command when batch is idle and gripper is verified open."""
+        return True, None, "No hardware attached."
+
+    def request_pregrasp_preempt(self) -> None:
+        """Hint executor to stop descending between pre-grasp chunks before Chunk 3 GRASPING."""
+        return
+
+    def clear_pregrasp_preempt(self) -> None:
+        """Clear any pending pre-grasp preemption signal."""
+        return
+
+    def preempt_to_safe_hover(self) -> tuple[bool, str | None, str | None]:
+        """Optional safe open-gripper lift back to hover before pre-grasp target switching."""
+        return True, None, None
+
 
 @dataclass
 class FaultConfig:

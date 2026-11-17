@@ -45,11 +45,17 @@ class TestD1WebPanelHTTP(unittest.TestCase):
                 html = resp.read().decode("utf-8")
                 self.assertEqual(resp.status, 200)
                 self.assertIn("SIMULATION_MOCK", html)
-                self.assertIn("Switch Active Target Mid-Approach (D4)", html)
+                self.assertIn("In-Flight Priority (1-Click Next Block)", html)
+                self.assertIn("btnPriRed", html)
+                self.assertIn("btnPriYellow", html)
+                self.assertIn("btnPriBlue", html)
+                self.assertIn("btnReturnHome", html)
+                self.assertIn("White Workspace Grid (R1-R9)", html)
 
             st, snap0 = self._req_json(base, "GET", "/api/snapshot?client_id=tab1&since_event_seq=0")
             self.assertEqual(st, 200)
             self.assertEqual(snap0["session_state"], SessionState.PREPARING.value)
+            self.assertEqual(snap0["switch_window"], "IDLE")
 
             # Start session as tab1
             st, snap1 = self._req_json(base, "POST", "/api/session/start", {"client_id": "tab1", "scene_id": "scene_1_standard"})

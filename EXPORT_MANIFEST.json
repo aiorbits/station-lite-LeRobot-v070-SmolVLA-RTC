@@ -1,26 +1,26 @@
 {
   "bundle": "station-lite-LeRobot-v070-SmolVLA-RTC",
-  "release_version": "v1.0",
+  "release_version": "v1.1",
   "repository": "https://github.com/aiorbits/station-lite-LeRobot-v070-SmolVLA-RTC",
   "profile": "public_deprivatized",
   "hardware_connected": false,
-  "file_count": 54,
-  "total_bytes": 1214778,
+  "file_count": 56,
+  "total_bytes": 1684698,
   "files": [
     {
       "path": ".gitignore",
-      "bytes": 576,
-      "sha256": "c444094b428745e962961e0afb760eb9bf3f7302e1bb3619e7a5ed3a85d47e2b"
+      "bytes": 595,
+      "sha256": "87499ccce698ce4127f3e03b0fc6f05791bdb14a0a0bcf65c381c82132908868"
     },
     {
       "path": "README.md",
-      "bytes": 11353,
-      "sha256": "8615ecd653dd4753bb59d303220514ccf53da40cc911e586393f1b6064ac6aa8"
+      "bytes": 14911,
+      "sha256": "8cbc90acad5196281477775e98c645c4891281bc7e87f69aa1d6d63e9c20086d"
     },
     {
       "path": "docs/DEPLOYMENT_GUIDE.md",
-      "bytes": 8990,
-      "sha256": "7c048819a1f1cd9a389dbaddd828630b60331ca1cc64499e07b095d3316bbe50"
+      "bytes": 9262,
+      "sha256": "81f1691f61c9c7400e7fb95ce5bcf59456437fa520313883160e94b3804bdabf"
     },
     {
       "path": "docs/METHODS_AND_RTC_ARCHITECTURE.md",
@@ -34,8 +34,13 @@
     },
     {
       "path": "docs/RESULTS_AND_REPRODUCIBILITY.md",
-      "bytes": 12229,
-      "sha256": "3de3b5999cf37a7d71e778e08ed5f387d273d802be9a92ac27bbd214b26d8957"
+      "bytes": 14434,
+      "sha256": "a97512920b0875466f184fa40eefc011a94bbd4fa53782564e1a555915fc4766"
+    },
+    {
+      "path": "docs/assets/panel_v1_1_clear_table.png",
+      "bytes": 431332,
+      "sha256": "9f999801c2f1f9c219c4e31a8d8432a3626a506442f1ce24b03e46a6e277aedb"
     },
     {
       "path": "manifests/environment_snapshot.json",
@@ -51,6 +56,11 @@
       "path": "manifests/live_multiblock_20261116_summary.json",
       "bytes": 4746,
       "sha256": "10fd71c4b8af32b98e920a4c2f7bb96985f35b1304a530cf0a5c121b0f676531"
+    },
+    {
+      "path": "manifests/live_multiblock_20261117_summary.json",
+      "bytes": 3362,
+      "sha256": "014c29f452c0b83e6487bf0c647abb36099cd1b2e987c7cc2bb3b1b63d02ee1d"
     },
     {
       "path": "manifests/runtime_profile.json",
@@ -154,8 +164,8 @@
     },
     {
       "path": "src/v070_demo/contracts.py",
-      "bytes": 6599,
-      "sha256": "ae78737533d1d5c7681c3a587fcb155b037c7ee0e6bd245d3fe641959b137893"
+      "bytes": 6631,
+      "sha256": "a0f5a149c3b74567610234c786670840b854c3d95d75a9cc2f20b510827af25b"
     },
     {
       "path": "src/v070_demo/event_logger.py",
@@ -169,13 +179,13 @@
     },
     {
       "path": "src/v070_demo/executor_bridge.py",
-      "bytes": 22442,
-      "sha256": "812d85651b889f8631ac6ecd62653c1fa1536e2d6644219a5a2a24b3dc5c33dd"
+      "bytes": 23158,
+      "sha256": "1f13d70cd34500ea12a79a5ee090d4df27686d10ed6fe026bea00c6f4fc14ce3"
     },
     {
       "path": "src/v070_demo/live_robot_runner.py",
-      "bytes": 76038,
-      "sha256": "706e1f113924c7fda83ec0572b2ee48e898148baa5026d54d80b413d9caf5fe2"
+      "bytes": 79827,
+      "sha256": "955f4b1d919dc168917d534fb06fbadcbf72b995704a15c979b4ffa5e899f5a3"
     },
     {
       "path": "src/v070_demo/perception_adapter.py",
@@ -194,8 +204,8 @@
     },
     {
       "path": "src/v070_demo/session_service.py",
-      "bytes": 60961,
-      "sha256": "3982de469c4cc309c197fa7859620173e1df7f946336b8696606e4cd21347515"
+      "bytes": 68535,
+      "sha256": "d6abb6161bebfeaf4e6206eba0c10f4d4532183a4ba6e4762b8e59be479e3a22"
     },
     {
       "path": "src/v070_demo/task_parser.py",
@@ -219,8 +229,8 @@
     },
     {
       "path": "src/v070_demo/tests/test_d1_web_panel_http.py",
-      "bytes": 6639,
-      "sha256": "885bdab4a2ad9da91c3fb7d853ce6d918974a404ae0205d66aade291a2f04f85"
+      "bytes": 6973,
+      "sha256": "e04c2002238be6943c1b6b266f933d57cca8851bc83821e755994556938c6ffb"
     },
     {
       "path": "src/v070_demo/tests/test_d2_candidate_bridge.py",
@@ -234,8 +244,8 @@
     },
     {
       "path": "src/v070_demo/tests/test_d3_live_backend_and_safety.py",
-      "bytes": 96877,
-      "sha256": "d9b15aa6bfc85ead23253ab8e28e014e048c1e65808ebbf4db1ddd9a0756d968"
+      "bytes": 107836,
+      "sha256": "b05f98b8a4ea877573a0c8b3cfd4a668747f2eaa7713d449ba94cb98d4bcb6e8"
     },
     {
       "path": "src/v070_demo/trajectory_planner.py",
@@ -244,8 +254,8 @@
     },
     {
       "path": "src/v070_demo/web_panel.py",
-      "bytes": 26963,
-      "sha256": "cdfea26c8192cfc853e490ec3f26847ced9d882c71ee3c7cfc215f02a93a74c7"
+      "bytes": 32731,
+      "sha256": "361a33697fb946b6b47a87a9f73e6001af327006cd6b3164a27013149752a57e"
     },
     {
       "path": "tests/test_g3_contract.py",

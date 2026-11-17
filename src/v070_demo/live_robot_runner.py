@@ -200,6 +200,7 @@ class LiveRight7HardwareBridge(ExecutionBridge):
         self._at_clear_obs = False
         self._last_place_target_obb: dict[str, Any] | None = None
         self._hold_event = threading.Event()
+        self._pregrasp_preempt_event = threading.Event()
         self._cancelled_generations: list[tuple[int, str]] = []
         self._latest_jpegs: dict[str, bytes] = {}
         self._latest_frame_mono: dict[str, float] = {}
@@ -745,6 +746,8 @@ class LiveRight7HardwareBridge(ExecutionBridge):
         for step_idx in range(4):
             if self._hold_event.is_set():
                 return False, "hold_requested", "Pause or cancel requested"
+            if self._pregrasp_preempt_event.is_set():
+                return True, None, "preempted_before_grasp"
             payload, raw, actions = self._query_policy_actions(task=task)
             _q, pose7 = self._measured_pose7()
             wrist_obb = _grasp_cases.detect_wrist_block_obb(raw["wrist_bytes"], target_color=obj.color)
@@ -1534,6 +1537,30 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             self._holding_object = False
             self._last_place_target_obb = None
             self._hold_event.clear()
+            self._pregrasp_preempt_event.clear()
+
+    def _execute_safe_home_motion_locked(self, pose7: np.ndarray, *, log_prefix: str) -> tuple[bool, str | None, str | None]:
+        """Lift above min_safe_home_z_m if low, then invoke go_home() and settle under _exec_lock."""
+        if float(pose7[2]) < float(self.config.min_safe_home_z_m):
+            lift_seg = plan_vertical_lift_in_place(
+                pose7,
+                target_z_m=max(float(self.config.hover_z_m), float(self.config.min_safe_home_z_m) + 0.025),
+                target_grip_m=float(pose7[6]),
+            )
+            ok_lift, err_c, err_d = self._plan_and_send_segment(
+                segment=lift_seg, phase_name="takeoff", refine=True, loop_index=6
+            )
+            if not ok_lift:
+                return False, err_c, err_d
+            _q, pose7 = self._measured_pose7()
+            if float(pose7[2]) < float(self.config.min_safe_home_z_m):
+                return False, "unsafe_home_suppressed", f"EE z={pose7[2]:.4f}m < min_safe_home_z_m"
+        print(log_prefix, flush=True)
+        self._robot.go_home()
+        self._sleep(float(self.config.robot_init_settle_s))
+        self._at_clear_obs = False
+        self._returned_home_after_batch = True
+        return True, None, None
 
     def return_home_on_completion(self) -> tuple[bool, str | None, str | None]:
         """Return BOTH arms safely to calibrated Home ONLY after verified empty-handed batch completion."""
@@ -1551,25 +1578,74 @@ class LiveRight7HardwareBridge(ExecutionBridge):
                 self._at_clear_obs = False
                 self._returned_home_after_batch = True
                 return True, None, None
-            if float(pose7[2]) < float(self.config.min_safe_home_z_m):
+            return self._execute_safe_home_motion_locked(
+                pose7,
+                log_prefix="[D3 BATCH HOME] Safe normal completion: returning BOTH arms to Home",
+            )
+
+    def manual_return_home(self) -> tuple[bool, str | None, str | None]:
+        """Operator-confirmed explicit Home button: requires idle batch + verified open gripper (>= 45 mm)."""
+        with self._exec_lock:
+            if self._shutdown_done:
+                return False, "hardware_shutdown", "Robot hardware session is already shut down"
+            if self._robot is None:
+                return True, None, "Robot hardware not attached yet; already idle"
+            if not self.config.confirm_exit_home:
+                return False, "exit_home_not_confirmed", "Restart with --confirm-exit-home to enable Return Home"
+            _q, pose7 = self._measured_pose7()
+            grip_m = float(pose7[6])
+            if grip_m < 0.045:
+                return (
+                    False,
+                    "unsafe_home_gripper_closed",
+                    f"Gripper width {grip_m:.4f}m < 0.045m; release or clear block before Home",
+                )
+            self._holding_object = False
+            self._held_grip_m = None
+            if bool(np.linalg.norm(pose7[:3] - _HOME_XYZ) < 0.035):
+                self._at_clear_obs = False
+                self._returned_home_after_batch = True
+                return True, None, "Both arms already at Home."
+            ok, err_c, err_d = self._execute_safe_home_motion_locked(
+                pose7,
+                log_prefix="[D3 OPERATOR HOME] Open gripper verified; returning BOTH arms to Home",
+            )
+            if not ok:
+                return False, err_c, err_d
+            return True, None, "Both arms returned safely to Home."
+
+    def request_pregrasp_preempt(self) -> None:
+        """Signal between empty-hand pre-grasp chunks before Chunk 3 GRASPING starts."""
+        self._pregrasp_preempt_event.set()
+
+    def clear_pregrasp_preempt(self) -> None:
+        """Clear pending pre-grasp preempt signal."""
+        self._pregrasp_preempt_event.clear()
+
+    def preempt_to_safe_hover(self) -> tuple[bool, str | None, str | None]:
+        """Lift open empty gripper back to hover_z_m before pre-grasp target switch."""
+        with self._exec_lock:
+            self._pregrasp_preempt_event.clear()
+            if self._robot is None or self._shutdown_done:
+                return True, None, None
+            if self._holding_object or self._held_grip_m is not None:
+                return False, "unsafe_preempt_holding_object", "Cannot preempt target while holding object"
+            _q, pose7 = self._measured_pose7()
+            if float(pose7[6]) < 0.045:
+                return False, "unsafe_preempt_gripper_not_open", f"Gripper width {pose7[6]:.4f}m < 0.045m"
+            hover_z = float(self.config.hover_z_m)
+            if float(pose7[2]) < hover_z - 0.015:
                 lift_seg = plan_vertical_lift_in_place(
                     pose7,
-                    target_z_m=max(float(self.config.hover_z_m), float(self.config.min_safe_home_z_m) + 0.025),
-                    target_grip_m=float(pose7[6]),
+                    target_z_m=hover_z,
+                    target_grip_m=float(max(pose7[6], 0.072)),
                 )
                 ok_lift, err_c, err_d = self._plan_and_send_segment(
-                    segment=lift_seg, phase_name="takeoff", refine=True, loop_index=6
+                    segment=lift_seg, phase_name="takeoff", refine=True, loop_index=3
                 )
                 if not ok_lift:
                     return False, err_c, err_d
-                _q, pose7 = self._measured_pose7()
-                if float(pose7[2]) < float(self.config.min_safe_home_z_m):
-                    return False, "unsafe_home_suppressed", f"EE z={pose7[2]:.4f}m < min_safe_home_z_m"
-            print("[D3 BATCH HOME] Safe normal completion: returning BOTH arms to Home", flush=True)
-            self._robot.go_home()
-            self._sleep(float(self.config.robot_init_settle_s))
             self._at_clear_obs = False
-            self._returned_home_after_batch = True
             return True, None, None
 
     def request_phase_hold(self, *, current_phase: ExecutionPhase, reason: str) -> bool:

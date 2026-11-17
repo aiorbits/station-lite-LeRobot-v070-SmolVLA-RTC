@@ -81,6 +81,7 @@ class CommandType(str, Enum):
     PAUSE = "PAUSE"
     RESUME = "RESUME"
     CANCEL_BATCH = "CANCEL_BATCH"
+    RETURN_HOME = "RETURN_HOME"
     CLOSE_SESSION = "CLOSE_SESSION"
 
 

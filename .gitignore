@@ -21,6 +21,7 @@ logs/
 *.jpg
 *.jpeg
 *.png
+!docs/assets/*.png
 *.mp4
 *.avi
 *.npy

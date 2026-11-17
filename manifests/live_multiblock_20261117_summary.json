@@ -1,0 +1,101 @@
+{
+  "schema": "station_lite_multiblock_live_summary_v1",
+  "release_version": "v1.1",
+  "date": "2026-11-17",
+  "timezone": "Asia/Singapore",
+  "evidence_basis": "Sanitized from locally archived Stage D3 supervised live trial event streams (`task_events.jsonl`, `command_events.jsonl`, `r13` and `r14`) and operator panel screenshot.",
+  "completed_batches": [
+    {
+      "run_label": "r13",
+      "batch_id": "batch_d0c27c84",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order",
+      "headline_score": "2/3",
+      "batch_elapsed_s": 99.979,
+      "operator_interventions": 1,
+      "intervention_reasons": [
+        "placement_unconfirmed:obj_blue_R7_1"
+      ],
+      "end_state": "PAUSED",
+      "returned_home_on_completion": false,
+      "note": "Red (R6) and Yellow (R2) confirmed placed in strict order; final Blue (R7) paused safely after placement_unconfirmed, motivating the guarded Return Home (Empty Gripper) panel control."
+    },
+    {
+      "run_label": "r13",
+      "batch_id": "batch_da8e4b5c",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order_with_in_flight_priority",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 113.603,
+      "operator_interventions": 0,
+      "priority_override": "blue",
+      "priority_apply_latencies_ms": [
+        5504.53
+      ],
+      "sequence": [
+        "obj_red_R3_1",
+        "obj_blue_R7_1",
+        "obj_yellow_R9_1"
+      ],
+      "returned_home_on_completion": true
+    },
+    {
+      "run_label": "r14",
+      "batch_id": "batch_32f4b3aa",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 118.744,
+      "operator_interventions": 0,
+      "sequence": [
+        "obj_red_R4_1",
+        "obj_yellow_R8_1",
+        "obj_blue_R3_1"
+      ],
+      "returned_home_on_completion": true,
+      "note": "First live verification of default Red -> Yellow -> Blue strict_order completion."
+    },
+    {
+      "run_label": "r14",
+      "batch_id": "batch_a9f597a2",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order_with_in_flight_priority",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 118.582,
+      "operator_interventions": 0,
+      "priority_override": "blue",
+      "priority_trigger_phase": "PLACING",
+      "priority_apply_latencies_ms": [
+        9826.11
+      ],
+      "sequence": [
+        "obj_red_R2_1",
+        "obj_blue_R7_1",
+        "obj_yellow_R3_1"
+      ],
+      "returned_home_on_completion": true
+    },
+    {
+      "run_label": "r14",
+      "batch_id": "batch_e88cd039",
+      "scene_id": "scene_clear_table",
+      "mode": "heuristic_ease_with_table_reenqueue",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 120.938,
+      "operator_interventions": 0,
+      "sequence": [
+        "obj_yellow_R6_1",
+        "obj_yellow_R6_1_c2",
+        "obj_red_R1_1"
+      ],
+      "returned_home_on_completion": true,
+      "note": "Verified continuous table replenishment (TABLE_REENQUEUED) and updated 3x3 R1-R9 panel canvas + Return Home button."
+    }
+  ],
+  "not_run_after_final_edits": [
+    "Live hardware click during APPROACHING_EMPTY/DESCENDING_CONTACT prior to Chunk 3 GRASPING (verified offline in test_26)",
+    "Stage D4 continuous mid-trajectory target cancellation",
+    "Stage D5 full stress harness and matched G5 A/B trials"
+  ]
+}
+
