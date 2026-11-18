@@ -2207,6 +2207,331 @@ class TestD3LiveBackendAndSafety(unittest.TestCase):
                 srv.shutdown()
                 srv.server_close()
 
+    def test_28_phase_a_step0_hover_descent_and_lazy_clear_obs(self) -> None:
+        """Phase A: aligned hover descends on step 0 without flat hover loop; CLEAR_OBS runs lazily on observe_scene."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            rep = _write_dryrun_report(tmp_path / "ok.json")
+            hw = _SimulatedStationHardware({"R3": "red", "R1": "yellow", "R8": "blue"})
+            mock_state = _MockServerState(hw, checkpoint=_guarded.EXPECTED_CHECKPOINT)
+            # Omit gripper <0.04 closure so condition_approach_actions stays flat at hover z=0.200m,
+            # verifying step_idx == 0 immediate visual-aligned descent triggers on the very first step!
+            mock_state.omit_closure_for_grasp = True
+            srv = _start_mock_right7_server(mock_state)
+            port = srv.server_address[1]
+            try:
+                snap_dir = tmp_path / "snaps_a"
+                cfg = LiveHardwareConfig(
+                    server_url=f"http://127.0.0.1:{port}",
+                    dry_run_report_path=rep,
+                    operator_admitted=True,
+                    confirm_startup_home=True,
+                    confirm_exit_home=True,
+                    return_home_on_batch_complete=True,
+                    unsafe_exit_action="immediate_disable",
+                    use_clear_obs_retreat=True,
+                    snapshot_dir=snap_dir,
+                    robot_init_settle_s=0.0,
+                    settle_margin_s=0.0,
+                    settle_drift_sleep_s=0.0,
+                    chunk_wait_slice_s=0.01,
+                    grasp_duration_s=0.05,
+                    speed=10.0,
+                    takeoff_speed=10.0,
+                    aerial_approach_speed=10.0,
+                    approach_speed=10.0,
+                    transport_speed=10.0,
+                    place_speed=10.0,
+                )
+                bridge = LiveRight7HardwareBridge(
+                    config=cfg,
+                    robot_cls=hw.make_robot_cls(),
+                    image_client_cls=hw.make_image_client_cls(),
+                    sleep_fn=lambda _s: None,
+                )
+                bridge.admit_hardware()
+                svc = SessionService(bridge)
+                svc.start_session("op1", scene_id="scene_1_standard")
+                ep = svc.get_snapshot()["lease"]["lease_epoch"]
+                rec = svc.submit_command(
+                    client_id="op1",
+                    command_id="phase_a_1",
+                    command_type=CommandType.START_BATCH,
+                    raw_text="Pick up the three wooden blocks (red, yellow, and blue) in exact order and place them on the brown target area.",
+                    scene_id="scene_1_standard",
+                    lease_epoch=ep,
+                )
+                self.assertEqual(rec.status, CommandStatus.APPLIED)
+                deadline = time.monotonic() + 25.0
+                while time.monotonic() < deadline:
+                    svc.heartbeat("op1", ep)
+                    cur = svc.get_snapshot()
+                    if (
+                        cur["session_state"] == SessionState.READY.value
+                        and cur["metrics"]["completed_count"] == 3
+                        and svc._worker is not None
+                        and not svc._worker.is_alive()
+                    ):
+                        break
+                    time.sleep(0.03)
+                snap = svc.get_snapshot()
+                self.assertEqual(snap["metrics"]["headline_score"], "3/3")
+                self.assertEqual(hw.state["placed_colors"], ["red", "yellow", "blue"])
+
+                # Verify step 0 descended immediately on all 3 objects -> ZERO approach_1 snapshots!
+                self.assertEqual(list(snap_dir.glob("*_approach_1_*")), [])
+
+                # Smart Phase B CLEAR_OBS skips all unnecessary post-release detours when remaining colors are visible!
+                clear_obs_chunks = [
+                    c for c in hw.state["sent_chunks"]
+                    if np.linalg.norm(np.asarray(c["end_pose6"][:3], dtype=float) - CLEAR_OBS_POSE6[:3]) < 0.03
+                ]
+                self.assertEqual(clear_obs_chunks, [], msg=f"Unexpected CLEAR_OBS detours in Scene 1: {clear_obs_chunks}")
+
+                # Verify CLEAR_OBS DOES trigger on demand when checking empty table from brown hover!
+                hw.state["pose6"] = np.array([0.364, 0.239, 0.200, -0.45, 0.90, 0.94], dtype=float)
+                hw.state["grip_m"] = 0.068
+                bridge.observe_scene("scene_clear_table", time.monotonic())
+                clear_obs_after_obs = [
+                    c for c in hw.state["sent_chunks"]
+                    if np.linalg.norm(np.asarray(c["end_pose6"][:3], dtype=float) - CLEAR_OBS_POSE6[:3]) < 0.03
+                ]
+                self.assertEqual(len(clear_obs_after_obs), 1)
+            finally:
+                bridge.shutdown_hardware(safe_normal_completion=True)
+                srv.shutdown()
+                srv.server_close()
+
+    def test_29_slow_observe_scene_does_not_starve_heartbeat_or_expire_lease(self) -> None:
+        """Regression for r15: releasing _lock around observe_scene prevents lease starvation during lazy CLEAR_OBS."""
+        from v070_demo.contracts import SafetyBudgets
+        from v070_demo.executor_bridge import MockRobotPublisher
+
+        bridge = MockRobotPublisher(step_delay_s=0.01)
+        orig_observe = bridge.observe_scene
+
+        def slow_observe(scene_id: str, now_mono: float):
+            time.sleep(0.55)  # Exceeds short 0.35s lease_ttl_s!
+            return orig_observe(scene_id, now_mono)
+
+        bridge.observe_scene = slow_observe  # type: ignore[method-assign]
+        svc = SessionService(
+            bridge,
+            budgets=SafetyBudgets(lease_ttl_s=0.35, heartbeat_interval_s=0.05),
+            watchdog_poll_s=0.05,
+        )
+        try:
+            svc.start_session("op_hb", scene_id="scene_1_standard")
+            ep = svc.get_snapshot(client_id="op_hb")["lease"]["lease_epoch"]
+            hb_stop = threading.Event()
+            hb_failures: list[str] = []
+
+            def hb_loop() -> None:
+                while not hb_stop.is_set():
+                    ok, reason = svc.heartbeat("op_hb", ep)
+                    if not ok:
+                        hb_failures.append(reason)
+                    time.sleep(0.05)
+
+            t = threading.Thread(target=hb_loop, daemon=True)
+            t.start()
+            try:
+                rec = svc.submit_command(
+                    client_id="op_hb",
+                    command_id="slow_obs_batch",
+                    command_type=CommandType.START_BATCH,
+                    raw_text="Pick up the three wooden blocks (red, yellow, and blue) in exact order and place them on the brown target area.",
+                    scene_id="scene_1_standard",
+                    lease_epoch=ep,
+                )
+                self.assertEqual(rec.status, CommandStatus.APPLIED)
+                deadline = time.monotonic() + 10.0
+                while time.monotonic() < deadline:
+                    cur = svc.get_snapshot(client_id="op_hb")
+                    if cur["session_state"] == SessionState.READY.value and cur["metrics"]["completed_count"] == 3:
+                        break
+                    time.sleep(0.03)
+            finally:
+                hb_stop.set()
+                t.join(timeout=2.0)
+
+            snap = svc.get_snapshot(client_id="op_hb")
+            self.assertEqual(hb_failures, [])
+            self.assertFalse(snap["lease"]["expired"])
+            self.assertEqual(snap["session_state"], SessionState.READY.value)
+            self.assertEqual(snap["metrics"]["headline_score"], "3/3")
+            self.assertFalse(any(ev["kind"] == "CONTROLLER_LEASE_EXPIRED" for ev in snap["events"]))
+        finally:
+            svc._watchdog_stop.set()
+
+    def test_30_grasp_ood_envelope_jump_uses_calibrated_wrist_fallback_when_tight_aligned(self) -> None:
+        """Regression for r16 blue R7: OOD >40mm grasp raw jump uses wrist-OBB closure iff tight aligned, else raises."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            rep = _write_dryrun_report(tmp_path / "ok.json")
+            hw = _SimulatedStationHardware({"R7": "blue"})
+            _BaseImg = hw.make_image_client_cls()
+            wrist_visible = {"on": True}
+
+            class _BlueCornerWristImg(_BaseImg):
+                def get_right_wrist_frame(self):
+                    if not wrist_visible["on"]:
+                        return _render_wrist_cam(block_color=None, show_brown_target=False), time.monotonic()
+                    uv = _grasp_cases.wrist_target_uv_for_pose(
+                        ee_pose6=hw.state["pose6"],
+                        ee_z_m=float(hw.state["pose6"][2]),
+                    )
+                    return _render_wrist_cam(block_color="blue", target_uv=uv), time.monotonic()
+
+            mock_state = _MockServerState(hw, checkpoint=_guarded.EXPECTED_CHECKPOINT)
+            srv = _start_mock_right7_server(mock_state)
+            port = srv.server_address[1]
+            try:
+                cfg = LiveHardwareConfig(
+                    server_url=f"http://127.0.0.1:{port}",
+                    dry_run_report_path=rep,
+                    operator_admitted=True,
+                    confirm_startup_home=True,
+                    confirm_exit_home=True,
+                    unsafe_exit_action="immediate_disable",
+                    robot_init_settle_s=0.0,
+                    settle_margin_s=0.0,
+                    settle_drift_sleep_s=0.0,
+                    chunk_wait_slice_s=0.01,
+                    grasp_duration_s=0.05,
+                    speed=10.0,
+                )
+                bridge = LiveRight7HardwareBridge(
+                    config=cfg,
+                    robot_cls=hw.make_robot_cls(),
+                    image_client_cls=_BlueCornerWristImg,
+                    sleep_fn=lambda _s: None,
+                )
+                bridge.admit_hardware()
+                bridge._ensure_hardware_attached()
+
+                from v070_demo.contracts import ExecutionPhase, ObjectRecord
+
+                obj = ObjectRecord(
+                    object_id="obj_blue_R7_1",
+                    category="woodblock",
+                    color="blue",
+                    pose_estimate={"x": 0.22, "y": 0.17, "z": 0.03, "yaw_deg": 0.0},
+                    confidence=0.98,
+                    observation_id="obs1",
+                    observation_ts_mono=time.monotonic(),
+                    grid_cell="R7",
+                )
+                # Inject exact r16 OOD raw prediction (+45.7mm jump + lift while gripper predicts closure < 0.04)
+                ood_raw = np.repeat(np.array([[0.2380, 0.1843, 0.1756, -0.3035, 0.9678, 0.9275, 0.0245]]), 50, axis=0)
+                ood_raw[-1, :3] = [0.2493, 0.1506, 0.2051]
+
+                def fake_query(*, task: str):
+                    _, raw_obs = bridge._read_live_observation(task=task)
+                    return {"observation": True}, raw_obs, ood_raw.copy()
+
+                bridge._query_policy_actions = fake_query  # type: ignore[method-assign]
+
+                # 1. With tight-aligned blue block under open jaws at z=0.1617 -> succeeds via wrist fallback!
+                hw.state["pose6"] = np.array([0.1962, 0.1966, 0.1617, -0.3035, 0.9678, 0.9275], dtype=float)
+                hw.state["grip_m"] = 0.0678
+                ok, err_c, err_d = bridge._run_grasping(obj)
+                self.assertTrue(ok, msg=f"{err_c}: {err_d}")
+                self.assertLessEqual(float(hw.state["grip_m"]), 0.01)
+
+                # 2. Without visible block under jaws -> same OOD jump MUST still fail closed!
+                wrist_visible["on"] = False
+                hw.state["pose6"] = np.array([0.1962, 0.1966, 0.1617, -0.3035, 0.9678, 0.9275], dtype=float)
+                hw.state["grip_m"] = 0.0678
+                with self.assertRaises(ValueError):
+                    bridge._run_grasping(obj)
+            finally:
+                bridge.shutdown_hardware(safe_normal_completion=True)
+                srv.shutdown()
+                srv.server_close()
+
+    def test_31_phase_b_offcenter_40px_single_arc_descent_no_approach_1(self) -> None:
+        """Phase B: ~40px off-center wrist OBB descends in 1 continuous overlapped arc (no approach_0+approach_1 split)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            rep = _write_dryrun_report(tmp_path / "ok.json")
+            hw = _SimulatedStationHardware({"R3": "red"})
+            _BaseImg = hw.make_image_client_cls()
+            block_pose = np.array(GRID_HOVER_POSES["R3"], dtype=float)
+            # Offset physical block by ~25mm (~32-40px) from nominal R3 center!
+            block_pose[0] += 0.024
+            block_pose[1] -= 0.018
+
+            class _OffCenterWristImg(_BaseImg):
+                def get_right_wrist_frame(self):
+                    cur = hw.state["pose6"]
+                    # Render wrist image shifted by remaining delta relative to shifted physical block!
+                    rel_pose = cur.copy()
+                    rel_pose[0] = GRID_HOVER_POSES["R3"][0] + (cur[0] - block_pose[0])
+                    rel_pose[1] = GRID_HOVER_POSES["R3"][1] + (cur[1] - block_pose[1])
+                    uv = _grasp_cases.wrist_target_uv_for_pose(
+                        ee_pose6=rel_pose,
+                        ee_z_m=float(cur[2]),
+                    )
+                    return _render_wrist_cam(block_color="red", target_uv=uv), time.monotonic()
+
+            mock_state = _MockServerState(hw, checkpoint=_guarded.EXPECTED_CHECKPOINT)
+            mock_state.omit_closure_for_grasp = True
+            srv = _start_mock_right7_server(mock_state)
+            port = srv.server_address[1]
+            try:
+                snap_dir = tmp_path / "snaps_b"
+                cfg = LiveHardwareConfig(
+                    server_url=f"http://127.0.0.1:{port}",
+                    dry_run_report_path=rep,
+                    operator_admitted=True,
+                    confirm_startup_home=True,
+                    confirm_exit_home=True,
+                    unsafe_exit_action="immediate_disable",
+                    snapshot_dir=snap_dir,
+                    robot_init_settle_s=0.0,
+                    settle_margin_s=0.0,
+                    settle_drift_sleep_s=0.0,
+                    chunk_wait_slice_s=0.01,
+                    grasp_duration_s=0.05,
+                    speed=10.0,
+                )
+                bridge = LiveRight7HardwareBridge(
+                    config=cfg,
+                    robot_cls=hw.make_robot_cls(),
+                    image_client_cls=_OffCenterWristImg,
+                    sleep_fn=lambda _s: None,
+                )
+                bridge.admit_hardware()
+                bridge._ensure_hardware_attached()
+
+                from v070_demo.contracts import ObjectRecord
+
+                obj = ObjectRecord(
+                    object_id="obj_red_R3_1",
+                    category="woodblock",
+                    color="red",
+                    pose_estimate={"x": 0.28, "y": 0.11, "z": 0.03, "yaw_deg": 0.0},
+                    confidence=0.98,
+                    observation_id="obs1",
+                    observation_ts_mono=time.monotonic(),
+                    grid_cell="R3",
+                )
+                hw.state["pose6"] = np.asarray(GRID_HOVER_POSES["R3"], dtype=float).copy()
+                hw.state["grip_m"] = 0.072
+
+                ok, err_c, err_d = bridge._run_descending_contact(obj)
+                self.assertTrue(ok, msg=f"{err_c}: {err_d}")
+                self.assertLessEqual(float(hw.state["pose6"][2]), 0.168)
+                # Must descend on step 0 in 1 continuous arc (20 or 26 pts), ZERO approach_1!
+                self.assertEqual(len(hw.state["sent_chunks"]), 1)
+                self.assertIn(hw.state["sent_chunks"][0]["waypoints"], (20, 26))
+                self.assertEqual(list(snap_dir.glob("*_approach_1_*")), [])
+            finally:
+                bridge.shutdown_hardware(safe_normal_completion=True)
+                srv.shutdown()
+                srv.server_close()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -39,6 +39,7 @@ from .perception_adapter import (
 )
 from .task_parser import format_single_target_task
 from .trajectory_planner import (
+    CLEAR_OBS_POSE6,
     plan_brown_to_clear_obs,
     plan_brown_to_next_grid_hover,
     plan_clear_obs_to_grid_hover,
@@ -104,17 +105,17 @@ class LiveHardwareConfig:
     margin_rad: float = 0.02
     max_soft_clip_rad: float = 0.0
     rate_hz: float = 30.0
-    speed: float = 0.30
-    takeoff_speed: float = 0.30
-    aerial_approach_speed: float = 0.36
-    approach_speed: float = 0.24
-    grasp_duration_s: float = 2.5
+    speed: float = 0.36
+    takeoff_speed: float = 0.42
+    aerial_approach_speed: float = 0.44
+    approach_speed: float = 0.28
+    grasp_duration_s: float = 1.9
     clamp_preload_m: float = 0.0125
-    transport_speed: float = 0.30
-    place_speed: float = 0.28
-    switch_delay_s: float = 0.04
-    settle_margin_s: float = 0.10
-    settle_drift_sleep_s: float = 0.10
+    transport_speed: float = 0.42
+    place_speed: float = 0.42
+    switch_delay_s: float = 0.03
+    settle_margin_s: float = 0.06
+    settle_drift_sleep_s: float = 0.06
     max_initial_gap_mm: float = 25.0
     max_rotation_gap_deg: float = 30.0
     max_gripper_gap_mm: float = 15.0
@@ -193,6 +194,7 @@ class LiveRight7HardwareBridge(ExecutionBridge):
         self._placed_slots_used = 0
         self._allow_slot_recycling = False
         self._occupied_pad_slots: dict[int, str] = {}
+        self._expected_reobserve_colors: set[str] = set()
         self._returned_home_after_batch = False
         self._held_grip_m: float | None = None
         self._holding_object = False
@@ -640,14 +642,49 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             frame = _guarded.wait_frame(self._image_client.get_head_frame)
             obs_ts = self._clock()
             high_bytes = base64.b64decode(_guarded.enc_jpeg_b64(frame))
-            with self._state_lock:
-                self._latest_jpegs["cam_high"] = high_bytes
-                self._latest_frame_mono["cam_high"] = obs_ts
             records = detect_all_high_cam_blocks(
                 high_bytes,
                 observation_id=obs_id,
                 observation_ts_mono=obs_ts,
             )
+            if self.config.use_clear_obs_retreat and self._robot is not None and not self._at_clear_obs:
+                _q_obs, pose7_obs = self._measured_pose7()
+                at_home = bool(np.linalg.norm(pose7_obs[:3] - _HOME_XYZ) < 0.035)
+                far_from_clear = bool(np.linalg.norm(pose7_obs[:3] - CLEAR_OBS_POSE6[:3]) >= 0.04)
+                detected_colors = {r.color.lower() for r in records}
+                with self._state_lock:
+                    expected_cols = set(self._expected_reobserve_colors)
+                missing_expected = bool(expected_cols - detected_colors)
+                clear_table_empty = bool(scene_id == "scene_clear_table" and len(records) == 0)
+                if (
+                    (missing_expected or clear_table_empty)
+                    and not at_home
+                    and far_from_clear
+                    and float(pose7_obs[6]) >= 0.045
+                ):
+                    clear_seg = plan_brown_to_clear_obs(
+                        pose7_obs,
+                        open_grip_m=max(float(pose7_obs[6]), 0.068),
+                    )
+                    ok_clr, _, _ = self._plan_and_send_segment(
+                        segment=clear_seg,
+                        phase_name="takeoff",
+                        refine=True,
+                        loop_index=6,
+                    )
+                    if ok_clr:
+                        self._at_clear_obs = True
+                        frame = _guarded.wait_frame(self._image_client.get_head_frame)
+                        obs_ts = self._clock()
+                        high_bytes = base64.b64decode(_guarded.enc_jpeg_b64(frame))
+                        records = detect_all_high_cam_blocks(
+                            high_bytes,
+                            observation_id=obs_id,
+                            observation_ts_mono=obs_ts,
+                        )
+            with self._state_lock:
+                self._latest_jpegs["cam_high"] = high_bytes
+                self._latest_frame_mono["cam_high"] = obs_ts
             return obs_id, records
 
     def _run_approaching_empty(self, obj: ObjectRecord) -> tuple[bool, str | None, str | None]:
@@ -697,7 +734,7 @@ class LiveRight7HardwareBridge(ExecutionBridge):
 
     @staticmethod
     def _plan_aligned_hover_descent(pose7: np.ndarray, *, wrist_obb: dict[str, Any], target_z_m: float = 0.162) -> np.ndarray:
-        """Build a bounded wrist-aligned vertical descent segment when policy omits <0.04 closure at hover."""
+        """Build a continuous overlapped XY-align + Z-descent segment from hover height."""
         start = np.asarray(pose7, dtype=float).reshape(7)
         cx, cy = float(wrist_obb["cx"]), float(wrist_obb["cy"])
         base_cx, base_cy = _grasp_cases._wrist_obb_base_targets(wrist_obb)
@@ -711,16 +748,16 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             table_grasp_z_m=0.160,
             deadband_u_px=4.0,
             deadband_v_px=4.0,
-            max_dx_range=(-0.015, 0.015),
-            max_dy_range=(-0.015, 0.015),
+            max_dx_range=(-0.042, 0.042),
+            max_dy_range=(-0.042, 0.042),
         )
-        end_pose = start[:6].copy()
-        end_pose[0] += float(corr_x_m)
-        end_pose[1] += float(corr_y_m)
-        end_pose[2] = float(np.clip(target_z_m, 0.158, float(start[2])))
+        end_z = float(np.clip(target_z_m, 0.158, float(start[2])))
         open_grip = float(min(max(float(start[6]), 0.072), 0.080))
-        n_total = 32
-        horiz_steps = 10
+        corr_norm = math.hypot(float(corr_x_m), float(corr_y_m))
+        n_total = 26 if corr_norm > 0.015 else 20
+        horiz_steps = 14 if corr_norm > 0.015 else 8
+        z_start_step = 3 if corr_norm > 0.015 else 1
+        z_span = max(1, n_total - z_start_step)
         seg = np.empty((n_total, 7), dtype=float)
         for idx in range(n_total):
             u_xy = min(1.0, float(idx + 1) / float(horiz_steps))
@@ -728,12 +765,12 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             seg[idx, 0] = float(start[0]) + w_xy * float(corr_x_m)
             seg[idx, 1] = float(start[1]) + w_xy * float(corr_y_m)
             seg[idx, 3:6] = start[3:6]
-            if idx + 1 <= horiz_steps:
+            if idx + 1 <= z_start_step:
                 seg[idx, 2] = float(start[2])
             else:
-                u_z = float(idx + 1 - horiz_steps) / float(n_total - horiz_steps)
+                u_z = min(1.0, float(idx + 1 - z_start_step) / float(z_span))
                 w_z = 0.5 * (1.0 - math.cos(math.pi * u_z))
-                seg[idx, 2] = float(start[2]) + w_z * (float(end_pose[2]) - float(start[2]))
+                seg[idx, 2] = float(start[2]) + w_z * (end_z - float(start[2]))
             seg[idx, 6] = open_grip
         validate_cartesian_segment(start, seg, loop_index=1)
         return seg
@@ -799,20 +836,23 @@ class LiveRight7HardwareBridge(ExecutionBridge):
                 raise
             seg, _trimmed = _grasp_cases.trim_segment_idle_tail(seg, keep_tail_hold=2, min_points=12)
 
-            # Edge cells / out-of-distribution non-red blocks can stay tightly aligned at hover without
-            # SmolVLA predicting <0.04 closure at z=0.200m. Once aligned after >=1 hover step, descend
-            # smoothly to z=0.162m under verified wrist alignment instead of looping at hover height.
+            # Whenever wrist_obb is detected at hover height within bounded visual offset (<= 55 px)
+            # and the policy chunk fails to descend below 0.175m, synthesize one continuous overlapped
+            # Jacobian XY-align + Z-descent arc to z=0.162m instead of wobbling flat at hover.
+            used_visual_arc = False
             if (
-                step_idx >= 1
+                step_idx >= 0
                 and float(pose7[2]) > 0.175
                 and float(np.min(seg[:, 2])) > 0.175
                 and wrist_obb is not None
                 and align is not None
-                and align["aligned"]
-                and abs(float(align["du"])) <= 15.0
-                and abs(float(align["dv"])) <= 15.0
+                and align["du"] is not None
+                and align["dv"] is not None
+                and abs(float(align["du"])) <= 55.0
+                and abs(float(align["dv"])) <= 55.0
             ):
                 seg = self._plan_aligned_hover_descent(pose7, wrist_obb=wrist_obb, target_z_m=0.162)
+                used_visual_arc = True
                 print(
                     f"[D3 APPROACH DESCENT FALLBACK step={step_idx}] obj={obj.object_id} "
                     f"du={align['du']:.1f} dv={align['dv']:.1f} descending {pose7[2]:.4f}->{seg[-1, 2]:.4f}m",
@@ -833,8 +873,22 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             if not ok:
                 return False, err_c, err_d
             _q_after, pose7_after = self._measured_pose7()
-            if float(pose7_after[2]) <= 0.168 and wrist_obb is not None and align is not None and align["aligned"]:
-                return True, None, None
+            if float(pose7_after[2]) <= 0.168:
+                if wrist_obb is not None and align is not None and align["aligned"]:
+                    return True, None, None
+                if used_visual_arc:
+                    wrist_frame = _guarded.wait_frame(self._image_client.get_right_wrist_frame)
+                    wrist_bytes_after = base64.b64decode(_guarded.enc_jpeg_b64(wrist_frame))
+                    obb_after = _grasp_cases.detect_wrist_block_obb(wrist_bytes_after, target_color=obj.color)
+                    align_after = _grasp_cases.check_wrist_grasp_alignment(
+                        obb_after,
+                        ee_z_m=float(pose7_after[2]),
+                        ee_pose6=pose7_after[:6],
+                        tol_u_px=float(self.config.wrist_align_tol_px),
+                        tol_v_px=float(self.config.wrist_align_tol_px),
+                    )
+                    if align_after["aligned"]:
+                        return True, None, None
         return True, None, None
 
     def _run_grasping(self, obj: ObjectRecord) -> tuple[bool, str | None, str | None]:
@@ -873,11 +927,19 @@ class LiveRight7HardwareBridge(ExecutionBridge):
                 and abs(float(align["du"])) <= 15.0
                 and abs(float(align["dv"])) <= 15.0
             )
+            raw_ood_grasp_jump = bool(
+                diag["raw0_gap_mm"] > float(self.config.settled_bridge_max_mm)
+                or diag["max_rot_deg"] > 90.0
+                or diag["grip_min"] < -0.020
+                or diag["grip_max"] > 0.085
+            )
             use_wrist_closure_fallback = bool(
-                not has_closure
-                and float(pose7[2]) <= 0.166
+                float(pose7[2]) <= 0.166
                 and tight_aligned
-                and (attempt_sub == 1 or float(pose7[2]) <= 0.164)
+                and (
+                    raw_ood_grasp_jump
+                    or (not has_closure and (attempt_sub == 1 or float(pose7[2]) <= 0.164))
+                )
             )
             if (has_closure and not gross_misaligned) or use_wrist_closure_fallback:
                 cond_actions = actions
@@ -1112,6 +1174,11 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             for idx in [k for k, col in self._occupied_pad_slots.items() if col in norm]:
                 self._occupied_pad_slots.pop(idx, None)
 
+    def sync_pending_colors_for_reobserve(self, colors: set[str]) -> None:
+        """Store expected remaining grid colors so observe_scene only CLEAR_OBS-retreats when occluded."""
+        with self._state_lock:
+            self._expected_reobserve_colors = {str(c).lower().strip() for c in colors}
+
     @staticmethod
     def _is_block_at_wrist_fingers(wrist_bytes: bytes | None, *, target_color: str) -> bool:
         """Return True when target block OBB is centered between the gripper fingertips in cam_right_wrist."""
@@ -1287,7 +1354,7 @@ class LiveRight7HardwareBridge(ExecutionBridge):
 
             seg, _trimmed = _grasp_cases.trim_segment_idle_tail(
                 seg,
-                keep_tail_hold=(4 if released else 2),
+                keep_tail_hold=2,
                 min_points=14,
             )
             phase_name = "place" if released else "transport"
@@ -1382,14 +1449,7 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             target_grip_m=float(pose7[6]),
         )
         ok_lift, err_c, err_d = self._plan_and_send_segment(segment=lift_seg, phase_name="takeoff", refine=True, loop_index=6)
-        if ok_lift and self.config.use_clear_obs_retreat:
-            _q2, pose7_lifted = self._measured_pose7()
-            clear_seg = plan_brown_to_clear_obs(pose7_lifted, open_grip_m=max(float(pose7_lifted[6]), 0.068))
-            ok_clr, err_c2, err_d2 = self._plan_and_send_segment(segment=clear_seg, phase_name="takeoff", refine=True, loop_index=6)
-            if ok_clr:
-                self._at_clear_obs = True
-            else:
-                ok_lift, err_c, err_d = False, err_c2, err_d2
+        self._at_clear_obs = False
 
         _q3, pose7_end = self._measured_pose7()
         return PhaseStepResult(
@@ -1532,6 +1592,7 @@ class LiveRight7HardwareBridge(ExecutionBridge):
             self._placed_slots_used = 0
             self._allow_slot_recycling = bool(allow_slot_recycling)
             self._occupied_pad_slots.clear()
+            self._expected_reobserve_colors.clear()
             self._returned_home_after_batch = False
             self._held_grip_m = None
             self._holding_object = False

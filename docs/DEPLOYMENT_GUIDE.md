@@ -147,7 +147,7 @@ Disable optional optimizations individually with `--no-direct-place-transport`, 
 
 ---
 
-## 3. Multi-Object Supervised Panel (`v070_demo.run_panel`, v1.1)
+## 3. Multi-Object Supervised Panel (`v070_demo.run_panel`, v1.2)
 
 After completing inference warmup (Section 2) and verifying Stage D3 CAN-isolated SDK dry-run admission (`--input "$D3_SDK_BUNDLE"` -> `"all_passed": true, "cleanup_returned": true`), launch the single-owner supervised web panel on `<ROBOT_HOST>`:
 
@@ -173,6 +173,6 @@ PYTHONPATH="./src" python3 -B -m v070_demo.run_panel \
   --lifecycle-audit-json ./logs/demo_d3_run/lifecycle_audit.json
 ```
 
-Use `--mode mock --host 127.0.0.1 --port 8095` to exercise the full panel UI (3x3 `R1–R9` canvas, 1-click `Red/Yellow/Blue` priority switching with live Chunk-3 Switch Window pill, and guarded `Return Home (Empty Gripper)`) offline with zero robot or GPU dependencies. Note that `Return Home (Empty Gripper)` strictly requires an idle batch thread, `--confirm-exit-home`, and measured open gripper width `>= 0.045 m`.
+Use `--mode mock --host 127.0.0.1 --port 8095` to exercise the full panel UI (3x3 `R1–R9` canvas, 1-click `Red/Yellow/Blue` priority switching with live Chunk-3 Switch Window pill, and guarded `Return Home (Empty Gripper)`) offline with zero robot or GPU dependencies. In `v1.2`, default `LiveHardwareConfig` parameters enable Phase A+B fast-cycle execution (in-place `cam_high` re-observation when all pending target colors remain visible, step-0 overlapped `±42 mm` / `55 px` XY+Z hover descent, `grasp_duration_s=1.9`, and higher aerial/takeoff/transport/place speeds `0.42–0.44` with tight `0.03 / 0.06 / 0.06 s` settle checks). Note that `Return Home (Empty Gripper)` strictly requires an idle batch thread, `--confirm-exit-home`, and measured open gripper width `>= 0.045 m`.
 
 

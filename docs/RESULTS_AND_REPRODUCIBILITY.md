@@ -80,11 +80,19 @@ Two synthetic `/predict` warmups subsequently returned inference times `131.876 
 
 ---
 
-## 4. Multi-Object Closed-Loop Supervised Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.0–v1.1)
+## 4. Multi-Object Closed-Loop Supervised Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.0–v1.2)
 
-In v1.0–v1.1, `src/v070_demo/` connects the single-owner supervised web panel (`run_panel.py`, `web_panel.py`, `session_service.py`) to live robot hardware (`live_robot_runner.py`, `trajectory_planner.py`, `evidence_verifier.py`, `perception_adapter.py`):
+In v1.0–v1.2, `src/v070_demo/` connects the single-owner supervised web panel (`run_panel.py`, `web_panel.py`, `session_service.py`) to live robot hardware (`live_robot_runner.py`, `trajectory_planner.py`, `evidence_verifier.py`, `perception_adapter.py`):
 
 - **CAN-Isolated Dry-Run Admission**: D2 bundle (`10/10`, `input_sha256="bf0bdc76..."`) and D3 bundle (`7/7`, `input_sha256="a7aa4f3d..."`) both passed on the robot host with `all_passed=true`, `cleanup_returned=true`.
+- **v1.2 Fast-Cycle Phase A + Phase B Live Verification (18 November 2026, `r15`–`r18`, [live_multiblock_20261118_summary.json](../manifests/live_multiblock_20261118_summary.json))**:
+  - **`r18` Phase B `Scene 1` Strict Order (`batch_f2b018a2`)**: Completed **`Red (R3) -> Yellow (R5) -> Blue (R7)`** in **`62.629 s` (`3/3`, `0` interventions, `0` retries, `RETURNED_HOME_ON_COMPLETION`)** — a **`47.134 s` (-42.9%) reduction** vs. Phase A (`r17`: `109.763 s`) and a **`56.115 s` (-47.3%) reduction** vs. `v1.1` (`r14`: `118.744 s`).
+    - Per-object timings: `obj_red_R3_1` `17.774 s` (`pre=0.089 s`, `select->HELD 9.901 s`, `HELD->PLACED 7.873 s`, `grip=0.0264 m`), `obj_yellow_R5_1` `20.084 s` (`pre=0.051 s`, `12.166 s + 7.917 s`, `grip=0.0286 m`), `obj_blue_R7_1` `18.555 s` (`pre=0.098 s`, `10.267 s + 8.288 s`, `grip=0.0263 m`), plus `RETURNED_HOME_ON_COMPLETION` `5.971 s`.
+    - In-place `cam_high` re-observation reduced inter-object transitions from `6.552 + 6.745 = 13.297 s` (`r17` `CLEAR_OBS` detours) to **`0.051 s` and `0.098 s`**, while overlapped `±42 mm` / `55 px` single-arc hover descent eliminated all `approach_1` retries (Red and Blue completed 26-step arcs in `3.59–3.71 s`).
+  - **`r17` Phase A `Scene 1` (`batch_82492bf8`)**: First full Phase A **`3/3` in `109.763 s` (`0` interventions, `RETURNED_HOME_ON_COMPLETION`)** across `Red (R3)`, `Yellow (R5)`, and corner `Blue (R7)` (verified tight-aligned `raw_ood_grasp_jump` wrist closure fallback).
+  - **Iterative Safeguards Identified During `r15` & `r16`**:
+    - `r15` (`batch_98c67e70`, `1/3`): Revealed UI heartbeat lock starvation when lazy `CLEAR_OBS` `observe_scene()` ran inside `self._lock`; fixed in `session_service.py` by releasing `self._lock` around `observe_scene()` (`sync_pending_colors_for_reobserve`), verified offline in `test_29`.
+    - `r16` (`batch_1d41675e`, `2/3`): Confirmed zero `CONTROLLER_LEASE_EXPIRED` faults and completed Red + Yellow cleanly; Blue at corner `R7` triggered `Target outside grasp candidate envelope` via a `+45.7 mm` upward OOD jump despite tight wrist alignment (`du=-7.55 px, dv=+1.0 px`), fixed via bounded `raw_ood_grasp_jump` fallback (`z <= 0.166 m` & tight alignment `<= 15 px`, verified in `test_30`).
 - **v1.0 Live Closed-Loop Trials (16 November 2026)**:
   - **`r9` (`batch_8f2c1664`)**: First autonomous **`3/3` (`108.218 s`, `0` interventions)** across Red (`R9`), Yellow (`R2`), and Blue (`R7`).
   - **`r12` (`batch_6f649714`)**: Autonomous **`3/3` (`110.644 s`, `0` interventions)** across Red (`R3`, `0.0264 m`), Blue (`R8`, `0.0351 m`), and edge-cell Yellow (`R1`, `0.0280 m`), followed by safe verified return to Home (`RETURNED_HOME_ON_COMPLETION`).
@@ -101,7 +109,10 @@ In v1.0–v1.1, `src/v070_demo/` connects the single-owner supervised web panel 
      - Replaced text-box priority inputs with 1-click **`Red` / `Yellow` / `Blue`** buttons and a live **Chunk-3 (`GRASPING`) Switch Window** pill (`PRE_GRASP_IMMEDIATE` lifts open gripper safely to hover and switches before `GRASPING`; `HOLDING_QUEUED_NEXT` queues cleanly until post-placement settle once Chunk 3+ begins). Note: `PREEMPTED_BEFORE_GRASP` is verified in offline unit test `test_26`, while live `r13`/`r14` priority clicks occurred post-grasp (`PLACING`).
      - Rewrote `renderCanvas()` with explicit **`White Workspace Grid (R1–R9)`** and **`Brown Target Zone (Slot 0–2)`** mapping, fixed-width table wrapping, and snapshot event deduplication (`seenEventSeqs`).
      - Added **`CommandType.RETURN_HOME`** (`Return Home (Empty Gripper)` button), verified in offline `test_27` to reject closed grippers (`< 45 mm`), lift low Z before `go_home()`, and reset `PAUSED -> READY`.
-- **Remaining Stage D4–D5 & Live Preemption Scope**: Live mid-approach pre-Chunk-3 priority preemption trial, full Stage D4 mid-trajectory switching, Stage D5 stress sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**. Concise evidence fields are summarized in [live_multiblock_20261116_summary.json](../manifests/live_multiblock_20261116_summary.json) and [live_multiblock_20261117_summary.json](../manifests/live_multiblock_20261117_summary.json).
+  5. *Phase A + Phase B Fast-Cycle Smoothness & Lock-Free Observation (`r15`–`r18`, v1.2)*:
+     - Released `session_service._lock` during `observe_scene()` with post-unlock stale/close checks (`test_29`) and synchronized pending remaining colors (`sync_pending_colors_for_reobserve`).
+     - Added step-0 overlapped cosine XY+Z hover descent (`±42 mm`, `|du|, |dv| <= 55 px`, `20–26` steps with post-descent `wait_frame` alignment check, `test_31`), calibrated tight-aligned `raw_ood_grasp_jump` closure fallback (`test_30`), faster safe phase speeds (`approach=0.28`, `aerial=0.44`, `takeoff/transport/place=0.42`, `grasp=1.9 s`, `switch/settle=0.03/0.06/0.06 s`), and in-place `cam_high` re-observation avoiding unnecessary `CLEAR_OBS_POSE6` detours.
+- **Remaining Stage D4–D5 & Live Preemption Scope**: `Clear the table` (`TABLE_REENQUEUED`) under v1.2 Phase B tuning, live mid-approach pre-Chunk-3 priority preemption trial, full Stage D4 mid-trajectory switching, Stage D5 stress sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**. Concise evidence fields are summarized in [live_multiblock_20261116_summary.json](../manifests/live_multiblock_20261116_summary.json), [live_multiblock_20261117_summary.json](../manifests/live_multiblock_20261117_summary.json), and [live_multiblock_20261118_summary.json](../manifests/live_multiblock_20261118_summary.json).
 
 ---
 

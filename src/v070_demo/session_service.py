@@ -614,10 +614,21 @@ class SessionService:
             cmd.reason = "resume_blocked_uncertain_held_state"
             return self._record_command(cmd, stream_kind="COMMAND_REJECTED")
 
-        # Require fresh observation + re-validation instead of reusing pre-pause actions
-        obs_id, _ = self.bridge.observe_scene(self.scene_id, now)
+        # Require fresh observation + re-validation outside _lock so heartbeat/snapshot stay responsive
+        scene_id = self.scene_id
+        self._lock.release()
+        try:
+            obs_id, _ = self.bridge.observe_scene(scene_id, now)
+        finally:
+            self._lock.acquire()
+        done_now = self._clock()
+        self._last_heartbeat_mono = done_now
+        if self._close_requested or self.session_state in (SessionState.CLOSED, SessionState.FAULTED):
+            cmd.status = CommandStatus.CANCELLED
+            cmd.reason = "session_closed_during_resume"
+            return self._record_command(cmd, stream_kind="COMMAND_CANCELLED")
         self.latest_obs_id = obs_id
-        self.latest_obs_ts_mono = now
+        self.latest_obs_ts_mono = done_now
         self.bridge.cancel_future_queue(generation=self.active_generation, reason="resume_revalidate")
 
         self._pause_requested = False
@@ -625,7 +636,7 @@ class SessionService:
         self.execution_phase = ExecutionPhase.OBSERVING
         cmd.status = CommandStatus.APPLIED
         cmd.accepted_ts_mono = now
-        cmd.applied_ts_mono = now
+        cmd.applied_ts_mono = done_now
         cmd.applied_generation = self.active_generation
         cmd.reason = f"Resumed after fresh observation {obs_id} and contact check."
         self._wake_event.set()
@@ -800,7 +811,15 @@ class SessionService:
 
     def _refresh_observations_locked(self, *, allow_reenqueue: bool = False) -> tuple[str, str | None]:
         now = self._clock()
-        obs_id, observed = self.bridge.observe_scene(self.scene_id, now)
+        scene_id = self.scene_id
+        pending_fn = getattr(self.bridge, "sync_pending_colors_for_reobserve", None)
+        if callable(pending_fn):
+            pending_fn({o.color.lower() for o in self.objects if o.status not in TERMINAL_OBJECT_STATES})
+        self._lock.release()
+        try:
+            obs_id, observed = self.bridge.observe_scene(scene_id, now)
+        finally:
+            self._lock.acquire()
         self.latest_obs_id = obs_id
         self.latest_obs_ts_mono = max((o.observation_ts_mono for o in observed), default=self._clock())
         obs_by_id = {item.object_id: item for item in observed}
@@ -983,6 +1002,16 @@ class SessionService:
                 if not remaining and self._clear_table_mode:
                     self.execution_phase = ExecutionPhase.OBSERVING
                     _obs_chk, amb_err = self._refresh_observations_locked(allow_reenqueue=True)
+                    if self.batch_id != expected_batch_id or self._close_requested:
+                        return
+                    if not self._wait_if_paused_locked():
+                        end = SessionState.CLOSED if self._close_requested else SessionState.READY
+                        if self.contact_state != ContactHeldState.EMPTY_CONFIRMED:
+                            end = SessionState.PAUSED
+                            self.operator_interventions += 1
+                            self.intervention_reasons.append("cancelled_or_stopped_while_non_empty")
+                        self._finalize_batch_locked(end_state=end, reason="cancelled_or_closed")
+                        return
                     if amb_err is not None:
                         self.operator_interventions += 1
                         self.intervention_reasons.append(amb_err)
@@ -1026,6 +1055,16 @@ class SessionService:
 
                 self.execution_phase = ExecutionPhase.OBSERVING
                 obs_id, amb_err = self._refresh_observations_locked(allow_reenqueue=self._clear_table_mode)
+                if self.batch_id != expected_batch_id or self._close_requested:
+                    return
+                if not self._wait_if_paused_locked():
+                    end = SessionState.CLOSED if self._close_requested else SessionState.READY
+                    if self.contact_state != ContactHeldState.EMPTY_CONFIRMED:
+                        end = SessionState.PAUSED
+                        self.operator_interventions += 1
+                        self.intervention_reasons.append("cancelled_or_stopped_while_non_empty")
+                    self._finalize_batch_locked(end_state=end, reason="cancelled_or_closed")
+                    return
                 if amb_err is not None:
                     self.operator_interventions += 1
                     self.intervention_reasons.append(amb_err)

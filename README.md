@@ -1,8 +1,8 @@
-# `station-lite-LeRobot-v070-SmolVLA-RTC` (`v1.1`)
+# `station-lite-LeRobot-v070-SmolVLA-RTC` (`v1.2`)
 
 **Repository:** <https://github.com/aiorbits/station-lite-LeRobot-v070-SmolVLA-RTC>
 
-A de-privatized **LeRobot `v0.7.0` + SmolVLA** autonomous dual-arm workstation repository (`v1.1`, **17 November 2026**) operating in right-arm closed-loop sorting mode (`right7`), spanning `0.6.2 -> 0.7.0` parity gates (`G0–G4`), Real-Time Chunking (RTC) vs. asynchronous HTTP `/predict` prefetching, Hybrid fast-cycle control, and the interactive **Stage D0–D3 Multi-Object Closed-Loop Supervised Web Panel (`src/v070_demo/`)**.
+A de-privatized **LeRobot `v0.7.0` + SmolVLA** autonomous dual-arm workstation repository (`v1.2`, **18 November 2026**) operating in right-arm closed-loop sorting mode (`right7`), spanning `0.6.2 -> 0.7.0` parity gates (`G0–G4`), Real-Time Chunking (RTC) vs. asynchronous HTTP `/predict` prefetching, Hybrid fast-cycle control, and the interactive **Stage D0–D3 Multi-Object Closed-Loop Supervised Web Panel (`src/v070_demo/`)** — now accelerated **47.3% (`118.744 s -> 62.629 s` for 3-block `Scene 1`, `0` interventions)**.
 
 > [!IMPORTANT]
 > **Weights, datasets, raw camera captures, vendor SDK binaries, local paths, LAN IPs, and credentials are excluded** (only sanitized UI screenshots under `docs/assets/` are committed with server IPs redacted).
@@ -10,6 +10,10 @@ A de-privatized **LeRobot `v0.7.0` + SmolVLA** autonomous dual-arm workstation r
 
 ## Project Highlights
 
+- **62.629 s Full 3-Block Autonomous Cycle (`v1.2` Fast-Cycle Orchestrator)**: Cuts multi-object `Scene 1` (`Red -> Yellow -> Blue`) completion from **`118.744 s` (`v1.1` `r14`)** and **`109.763 s` (`r17` Phase A)** down to **`62.629 s` (`r18`, `3/3`, `0` interventions, `0` retries)** via:
+  - **In-Place `cam_high` Re-Observation**: Detects all remaining pending colors directly above the brown pad before retreating, eliminating unnecessary `CLEAR_OBS_POSE6` detours (`6.55 + 6.75 s` -> **`0.051 s` + `0.098 s`** inter-object handoffs).
+  - **Overlapped XY+Z Single-Arc Hover Descent (`step_idx >= 0`)**: Widens visual Jacobian align+descend to `|du|, |dv| <= 55 px` (`±42 mm`, `20–26` cosine steps) with post-descent `wait_frame` verification, removing all `approach_1` retries on Red/Blue (`3.59–3.71 s`).
+  - **Lock-Free Re-Observation & Calibrated Corner-Block Fallback**: Releases `session_service._lock` around `observe_scene()` to prevent UI heartbeat starvation, paired with bounded `raw_ood_grasp_jump` closure fallback when a corner/OOD block is already tightly wrist-aligned at table height and tuned phase speeds (`approach=0.28`, `aerial=0.44`, `takeoff/transport/place=0.42`, `grasp=1.9 s`, settle `0.03/0.06/0.06 s`).
 - **Single-Arm `right7` Closed-Loop Manipulation on LeRobot `v0.7.0`**: Cleanly separates the active right arm (6 measured joints + calibrated gripper feedback -> 7D absolute EE pose + gripper target chunks) from inactive left-arm degrees of freedom (`14D -> 7D`), paired with calibrated dual-camera RGB conditioning (`cam_high`, `cam_right_wrist`) and square-symmetry OBB matching.
 - **Deterministic + Async VLA Hybrid Fast-Cycle Execution**: Combines Option A direct Home->Hover takeoff, halved settle waits (`0.10 s + 0.10 s`), `1.5x` pure-aerial speed, Scheme 1 geometric post-grasp transport, Scheme 3 release-tail compression, and `AsyncPredictClient` settled prefetching (`26.77–28.90 s` single-block strategy cycles).
 - **Interactive Multi-Object Supervised Web Panel (`src/v070_demo/`, Stage D0–D3)**:
@@ -20,32 +24,37 @@ A de-privatized **LeRobot `v0.7.0` + SmolVLA** autonomous dual-arm workstation r
 
 ![Station Lite LeRobot v0.7.0 Closed-Loop Sorting Panel (v1.1 Live Clear-Table Run)](docs/assets/panel_v1_1_clear_table.png)
 
-*Live v1.1 supervised panel capture (`r14`, `batch_e88cd039`, LAN server IP redacted): 3x3 `R1–R9` grid & brown `Slot 0–2` view, 1-click priority controls, `Return Home (Empty Gripper)`, and `Completed 3/3 | Time 120.938s | Interventions 0` with `RETURNED_HOME_ON_COMPLETION`.*
+*Sanitized supervised panel capture (`v1.1` `r14`, `batch_e88cd039`, LAN server IP redacted): 3x3 `R1–R9` grid & brown `Slot 0–2` view, 1-click priority controls, and guarded `Return Home (Empty Gripper)`. In `v1.2` (`r18`), `Scene 1` throughput improved from `118.744 s` to **`62.629 s` (`3/3`, `0` interventions)**.*
 
 ---
 
-## Latest Verified Live Results (`v1.1` — 17 November 2026)
+## Latest Verified Live Results (`v1.2` — 18 November 2026)
 
 1. **Multi-Object Closed-Loop Autonomous Sorting (`src/v070_demo/`, Stage D3)**:
+   - **`v1.2` Fast-Cycle Phase A + Phase B Runs (`r15`–`r18`, Nov 18)**:
+     - **`Scene 1` Phase B Fast-Cycle (`r18`, `batch_f2b018a2`)**: Strictly completed **`Red (R3, 17.774 s) -> Yellow (R5, 20.084 s) -> Blue (R7, 18.555 s)`** + `RETURNED_HOME_ON_COMPLETION` (`5.971 s`) in **`62.629 s` total (`3/3`, `0` interventions, `0` `approach_1` retries)** — **-47.3%** vs. `v1.1` `r14` (`118.744 s`) and **-42.9%** vs. Phase A `r17` (`109.763 s`). Inter-object observation gaps dropped to **`0.051 s`** and **`0.098 s`**.
+     - **`Scene 1` Phase A Baseline (`r17`, `batch_82492bf8`)**: First full **`3/3` in `109.763 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION` (`13.297 s` spent in inter-object `CLEAR_OBS` detours before Phase B in-place re-observation).
+     - **Iterative Faults Isolated & Fixed (`r15`–`r16`)**: `r15` exposed lock-held `observe_scene()` lease starvation (`1/3`, fixed via lock release in `session_service.py` + verified manual `Return Home`); `r16` verified zero lease drops (`2/3`) and caught corner-Blue `raw_ood_grasp_jump` at table height (`z <= 0.166 m` + tight wrist alignment fallback added).
    - **`v1.1` Live Panel & Sequencing Runs (`r13` & `r14`, Nov 17)**:
      - **`Scene 1` Strict Order (`r14`, `batch_32f4b3aa`)**: Picked & placed strictly in **`Red (R4) -> Yellow (R8) -> Blue (R3)`** text order — **`3/3` in `118.744 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION`.
      - **1-Click In-Flight Priority Override (`r13` `batch_da8e4b5c` & `r14` `batch_a9f597a2`)**: Triggered **`Blue`** priority mid-batch during `PLACING` (`HOLDING_QUEUED_NEXT`); atomically bumped to `Gen 2` after empty-hand checkpoint (`5.50 s` / `9.83 s` switch latency) and completed **`Red -> Blue -> Yellow`** — **`3/3` in `113.603 s` and `118.582 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION`.
-     - **`Clear the table` Continuous Replenishment (`r14`, `batch_e88cd039`)**: Completed **`Yellow (R6) -> TABLE_REENQUEUED -> Yellow (R6_c2) -> Red (R1)`** — **`3/3` in `120.938 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION`.
-     - **`r13` Safe Hold Observation (`batch_d0c27c84`)**: Confirmed `Red -> Yellow` (`2/3`), then halted safely in `PAUSED` when the 3rd block triggered `placement_unconfirmed` (suppressing blind auto-Home as designed), motivating the guarded **`Return Home (Empty Gripper)`** operator recovery button shipped in `v1.1`.
+     - **`Clear the table` Continuous Replenishment (`r14`, `batch_e88cd039`)**: Completed **`Yellow (R6) -> TABLE_REENQUEUED -> Yellow (R6_c2) -> Red (R1)`** — **`3/3` in `120.938 s`, `0` interventions**, `RETURNED_HOME_ON_COMPLETION`. (`NOT RUN` under `v1.2` Phase B tuning.)
    - **`v1.0` Reference Runs (`r9` & `r12`, Nov 16)**: Initial `3/3` autonomous trials (`108.218 s` and `110.644 s`, `0` interventions).
 2. **Single-Block Hybrid Fast-Cycle Pilot (`station_lite_smolvla_right7_guarded.py`)**:
    - Four consecutive warmed-up yellow single-block trials (`3x R2`, `1x R8`): **`26.77–28.90 s`** strategy cycle (**`33.51–35.64 s`** including post-placement lift and exit Home), **`16/16` async prefetch hits**, and **`13/13` CAN-isolated SDK dry-run pass**.
 
 | Measurement | Result |
 | --- | --- |
+| **`v1.2` `Scene 1` Phase B Fast-Cycle (`r18`, `Red -> Yellow -> Blue`)** | **`3/3` (`62.629 s`, `0` interventions, returned Home)** |
+| `v1.2` `Scene 1` Phase A (`r17`, `Red -> Yellow -> Blue`) | **`3/3` (`109.763 s`, `0` interventions, returned Home)** |
 | `v1.1` `Scene 1` strict order (`r14`, `Red -> Yellow -> Blue`) | **`3/3` (`118.744 s`, `0` interventions, returned Home)** |
 | `v1.1` In-flight priority override (`r13` / `r14`, -> `Blue`) | **`3/3` (`113.603 s` / `118.582 s`, `0` interventions)** |
 | `v1.1` `Clear the table` loop (`r14`, `TABLE_REENQUEUED`) | **`3/3` (`120.938 s`, `0` interventions, returned Home)** |
 | CAN-isolated vendor planning (`D2` / `D3` / Hybrid) | **`10/10` + `7/7` + `13/13` passed**, cleanup returned |
 | Single-block Hybrid strategy cycle (`R2` / `R8`) | **`26.77–27.92 s`** (`R2`), **`28.90 s`** (`R8`) |
-| Offline self-contained verification suite (`tests/`) | **`135/135` unit tests passed** (`87` core + `48` `v070_demo`) |
+| Offline self-contained verification suite (`tests/`) | **`139/139` unit tests passed** (`87` core + `52` `v070_demo`) |
 
-> Note: Startup readiness requires `/predict` warmup probes before hardware execution (`/health` alone did not establish inference readiness on Nov 16). While immediate pre-Chunk-3 (`APPROACHING_EMPTY` / `DESCENDING_CONTACT` -> safe hover -> `PREEMPTED_BEFORE_GRASP`) preemption is verified in offline unit test `test_26`, live `r13`/`r14` priority clicks occurred during `PLACING` (Chunk 3+ queue path). Live mid-approach pre-Chunk-3 click verification on hardware remains **`NOT RUN`**.
+> Note: Startup readiness requires `/predict` warmup probes before hardware execution (`/health` alone did not establish inference readiness on Nov 16). While immediate pre-Chunk-3 (`APPROACHING_EMPTY` / `DESCENDING_CONTACT` -> safe hover -> `PREEMPTED_BEFORE_GRASP`) preemption is verified in offline unit test `test_26`, live `r13`/`r14` priority clicks occurred during `PLACING` (Chunk 3+ queue path). Live mid-approach pre-Chunk-3 click verification and `Clear the table` under `v1.2` Phase B tuning remain **`NOT RUN`**.
 
 ## Architecture Overview
 
@@ -87,18 +96,18 @@ flowchart LR
 | **`LeRobot 0.7.0` Port (`G0–G4` Parity)** | Passed (`G1–G4`, `bfloat16` Option 1 signed off) | Passed (`11/11` v0.7.0 cases) | Included in Fast-Cycle v1 below |
 | **Fast-Cycle v1 (Async Prefetch + Halved Settle + Option A + Trim)** | Passed (`66` contract + `13` opt tests) | **Passed (`11/11`)** | **Passed (`4/4` live trials; `30.2–32.2 s`)** |
 | **Latest Hybrid (Scheme 1 Direct Transport + Scheme 3 Release Trim + Aerial 1.5x)** | **Passed** (host gates and offline tests) | **Passed (`13/13`, Nov 16)** | **4/4 warmed-up trials; `26.77–28.90 s` strategy cycle** |
-| **Multi-Object Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.1)** | **Passed (`48/48` D0–D3 tests)** | **Passed (`10/10` D2 + `7/7` D3)** | **`r9`/`r12` (`3/3`), `r13` priority (`3/3`), `r14` strict/priority/clear (`3/3` x 3)** |
+| **Multi-Object Orchestrator (`src/v070_demo/`, Stage D0–D3, v1.2)** | **Passed (`52/52` D0–D3 tests)** | **Passed (`10/10` D2 + `7/7` D3)** | **`r9`/`r12`/`r13`/`r14` (`3/3`), `r17` Phase A (`109.763 s`), `r18` Phase B (`62.629 s`, `3/3`)** |
 | **Live Pre-Chunk-3 Click / T3 Splicing / Live Guided RTC / Stage D4–D5** | Unit-tested (`test_26`, `evaluate_async_splice_candidate`) | **`NOT RUN`** | **`NOT RUN`** |
 
 ## Remaining Scope
 
-Live hardware pre-Chunk-3 priority clicks during `APPROACHING_EMPTY` / `DESCENDING_CONTACT` (only offline `test_26` verified), matched same-session G5 A/B trials, rotated/distractor scenes, continuous T3 mid-flight splicing, live Guided RTC, Stage D4 trajectory-cancel switching, Stage D5 full sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**.
+`Clear the table` under `v1.2` Phase B tuning, live hardware pre-Chunk-3 priority clicks during `APPROACHING_EMPTY` / `DESCENDING_CONTACT` (only offline `test_26` verified), matched same-session G5 A/B trials, rotated/distractor scenes, continuous T3 mid-flight splicing, live Guided RTC, Stage D4 trajectory-cancel switching, Stage D5 full sweeps, external VLM planning, and Lego sorting remain **`NOT RUN`**.
 
 ## Repository Structure
 
 ```text
 station-lite-LeRobot-v070-SmolVLA-RTC/
-├── README.md                                  # Project highlights, v1.1 panel preview & milestone matrix
+├── README.md                                  # Project highlights, v1.2 speedup results & milestone matrix
 ├── EXPORT_MANIFEST.json                       # SHA-256 & byte audit of every file
 ├── docs/
 │   ├── assets/
@@ -106,13 +115,14 @@ station-lite-LeRobot-v070-SmolVLA-RTC/
 │   ├── DEPLOYMENT_GUIDE.md                    # Sanitized env-var deployment, D3 dry-run & panel commands
 │   ├── METHODS_AND_RTC_ARCHITECTURE.md        # Deep dive: RTC, Async Prefetch, T3, Vision & Hybrid control
 │   ├── MIGRATION_AND_SAFETY_GATES.md          # LeRobot 0.6.2 -> 0.7.0 G0-G4 gates & SDK lifecycle safety
-│   └── RESULTS_AND_REPRODUCIBILITY.md         # Verified empirical benchmarks, Stage D3 v1.0-v1.1 logs
+│   └── RESULTS_AND_REPRODUCIBILITY.md         # Verified empirical benchmarks, Stage D3 v1.0-v1.2 logs
 ├── manifests/
 │   ├── environment_snapshot.json              # Package versions for v0.6.2 & v0.7.0 CUDA stacks
 │   ├── runtime_profile.json                   # Approved right7 control/guard profile parameters
 │   ├── live_hybrid_20261116_summary.json      # Sanitized single-block Hybrid pilot evidence summary
 │   ├── live_multiblock_20261116_summary.json  # Sanitized v1.0 Stage D3 multi-object summary
-│   └── live_multiblock_20261117_summary.json  # Sanitized v1.1 Stage D3 live verification summary
+│   ├── live_multiblock_20261117_summary.json  # Sanitized v1.1 Stage D3 live verification summary
+│   └── live_multiblock_20261118_summary.json  # Sanitized v1.2 Stage D3 Phase A+B speedup summary
 ├── src/
 │   ├── build_grasp_replay_cases.py            # 3D wrist pinhole math, OBB conditioning, Option A & Scheme 1/3
 │   ├── station_lite_smolvla_right7_guarded.py # AsyncPredictClient, T3 splice evaluators, guards & lifecycle
@@ -126,7 +136,7 @@ station-lite-LeRobot-v070-SmolVLA-RTC/
 │   ├── v070_demo/                             # Stage D0-D3 multi-object closed-loop panel & live orchestrator
 │   ├── training/                              # 14D->7D dataset converter, standard & training launcher
 │   └── rtc_analysis/                          # Offline CUDA Guided RTC & NFE perturbation benchmarks
-└── tests/                                     # Self-contained offline unit test suite (135 tests)
+└── tests/                                     # Self-contained offline unit test suite (139 tests)
 ```
 
 ## Quick Offline Verification

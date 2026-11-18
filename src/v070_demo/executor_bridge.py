@@ -326,6 +326,10 @@ class ExecutionBridge(ABC):
         """Inform executor which object colors are currently visible on the white workspace grid."""
         return
 
+    def sync_pending_colors_for_reobserve(self, colors: set[str]) -> None:
+        """Inform executor which remaining target colors must be visible during re-observation."""
+        return
+
     def return_home_on_completion(self) -> tuple[bool, str | None, str | None]:
         """Optional guarded return-to-home after safe empty-handed batch completion."""
         return False, None, None

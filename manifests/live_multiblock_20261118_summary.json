@@ -1,0 +1,113 @@
+{
+  "schema": "station_lite_multiblock_live_summary_v1",
+  "release_version": "v1.2",
+  "date": "2026-11-18",
+  "timezone": "Asia/Singapore",
+  "evidence_basis": "Sanitized from locally archived Stage D3 supervised live trial event streams (`task_events.jsonl`, `metrics.json`, `scene_final_manifest.json`, and trajectory segment logs from `r15`, `r16`, `r17`, and `r18`).",
+  "speedup_comparison": {
+    "scene_id": "scene_1_standard",
+    "v1_1_baseline_r14_s": 118.744,
+    "phase_a_r17_s": 109.763,
+    "phase_b_r18_s": 62.629,
+    "reduction_vs_v1_1_s": 56.115,
+    "reduction_vs_v1_1_pct": 47.3,
+    "reduction_vs_phase_a_s": 47.134,
+    "reduction_vs_phase_a_pct": 42.9
+  },
+  "completed_batches": [
+    {
+      "run_label": "r15",
+      "batch_id": "batch_98c67e70",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order",
+      "headline_score": "1/3",
+      "batch_elapsed_s": 109.818,
+      "operator_interventions": 0,
+      "end_state": "READY",
+      "reason": "interrupted_during_phase",
+      "returned_home_on_completion": false,
+      "note": "Exposed UI heartbeat lock starvation when lazy CLEAR_OBS observe_scene() ran inside _lock; fixed by releasing _lock around observe_scene() and verified manual Return Home recovery."
+    },
+    {
+      "run_label": "r16",
+      "batch_id": "batch_1d41675e",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order",
+      "headline_score": "2/3",
+      "batch_elapsed_s": 87.572,
+      "operator_interventions": 1,
+      "intervention_reasons": [
+        "guard_rejected:obj_blue_R7_1"
+      ],
+      "end_state": "READY",
+      "reason": "Target outside grasp candidate envelope",
+      "returned_home_on_completion": false,
+      "note": "Confirmed zero CONTROLLER_LEASE_EXPIRED faults after lock release; Red (R3) and Yellow (R5) confirmed placed; Blue (R7) triggered corner OOD upward jump at table height, fixed via calibrated tight-aligned wrist closure fallback."
+    },
+    {
+      "run_label": "r17",
+      "batch_id": "batch_82492bf8",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order",
+      "phase": "Phase A (step-0 aligned descent + lazy CLEAR_OBS + tight-aligned OOD grasp fallback)",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 109.763,
+      "operator_interventions": 0,
+      "sequence": [
+        "obj_red_R3_1",
+        "obj_yellow_R5_1",
+        "obj_blue_R7_1"
+      ],
+      "returned_home_on_completion": true,
+      "note": "First full 3/3 Phase A pass with 0 interventions; inter-object transitions still included two CLEAR_OBS retours (6.552 s + 6.745 s)."
+    },
+    {
+      "run_label": "r18",
+      "batch_id": "batch_f2b018a2",
+      "scene_id": "scene_1_standard",
+      "mode": "strict_order",
+      "phase": "Phase B (in-place re-observe + overlapped 55px single-arc descent + tuned phase speeds/settles)",
+      "headline_score": "3/3",
+      "batch_elapsed_s": 62.629,
+      "operator_interventions": 0,
+      "sequence": [
+        "obj_red_R3_1",
+        "obj_yellow_R5_1",
+        "obj_blue_R7_1"
+      ],
+      "per_object_timings_s": {
+        "obj_red_R3_1": {
+          "pre_gap_s": 0.089,
+          "select_to_held_s": 9.901,
+          "held_to_placed_s": 7.873,
+          "total_s": 17.774,
+          "held_grip_m": 0.0264
+        },
+        "obj_yellow_R5_1": {
+          "pre_gap_s": 0.051,
+          "select_to_held_s": 12.166,
+          "held_to_placed_s": 7.917,
+          "total_s": 20.084,
+          "held_grip_m": 0.0286
+        },
+        "obj_blue_R7_1": {
+          "pre_gap_s": 0.098,
+          "select_to_held_s": 10.267,
+          "held_to_placed_s": 8.288,
+          "total_s": 18.555,
+          "held_grip_m": 0.0263
+        },
+        "return_home_s": 5.971
+      },
+      "returned_home_on_completion": true,
+      "note": "Eliminated inter-object CLEAR_OBS detours (0.051 s and 0.098 s handoffs) and approach_1 retries (Red/Blue completed 26-step overlapped XY+Z arcs in 3.59-3.71 s)."
+    }
+  ],
+  "not_run_after_final_edits": [
+    "Clear the table (TABLE_REENQUEUED) under v1.2 Phase B fast-cycle settings",
+    "Live hardware priority click during APPROACHING_EMPTY/DESCENDING_CONTACT prior to Chunk 3 GRASPING (verified offline in test_26)",
+    "Stage D4 continuous mid-trajectory target cancellation",
+    "Stage D5 full stress harness and matched G5 A/B trials"
+  ]
+}
+
