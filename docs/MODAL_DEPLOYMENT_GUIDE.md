@@ -175,6 +175,12 @@ if __name__ == "__main__":
 ```
 
 ### 2.3 Launching the Windows Host Services
+0. **Both Terminals**: Navigate to your workspace and activate the virtual environment:
+   ```powershell
+   .\modal-env\Scripts\Activate.ps1
+   ```
+   *(If PowerShell blocks `Activate.ps1`, run `.\modal-env\Scripts\modal.exe` directly.)*
+
 1. **Terminal 1**: Start Modal and copy the generated `.modal.run` URL:
    ```powershell
    modal serve modal_server.py
