@@ -6,7 +6,7 @@ How I set up Google Cloud (17–19 Nov 2026) so the Station Lite robot can use t
 >
 > | | |
 > |---|---|
-> | **GPU** | **1x NVIDIA L4, 24 GB GPU memory** |
+> | **GPU** | **1x NVIDIA L4, 32 GB GPU memory** |
 > | **Machine type** | **`g2-standard-8`: 8 vCPUs, 32 GB RAM** |
 > | **Boot disk** | **100 GB** |
 > | **Zone** | `asia-southeast1-b` (Singapore) |
