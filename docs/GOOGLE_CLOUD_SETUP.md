@@ -13,7 +13,7 @@ How I set up Google Cloud (17–19 Nov 2026) so the Station Lite robot can use t
 > | **Software** | Ubuntu, conda env `smolvla`: Python 3.12, LeRobot 0.7.0, torch 2.15.0 |
 > | **Speed** | about 360 ms per prediction (warm) |
 >
-> We started on `g2-standard-4` (4 vCPUs, **16 GB RAM**). 16 GB RAM is too little for training, because loading the demo videos and images fills it. `g2-standard-8` has the same L4 but double the RAM and CPUs. The 24 GB of GPU memory is enough for both serving and fine-tuning SmolVLA. Changing the machine type is in section 9.
+> We started on `g2-standard-4` (4 vCPUs, **32 GB RAM**). 16 GB RAM is too little for training, because loading the demo videos and images fills it. `g2-standard-8` has the same L4 but double the RAM and CPUs. The 32 GB of GPU memory is enough for both serving and fine-tuning SmolVLA. Changing the machine type is in section 9.
 
 **Result:**
 - VM `vla-instance` (1x NVIDIA L4, `g2-standard-8`) in `asia-southeast1-b`
