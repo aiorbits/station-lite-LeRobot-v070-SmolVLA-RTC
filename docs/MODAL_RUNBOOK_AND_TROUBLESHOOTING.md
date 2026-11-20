@@ -9,7 +9,7 @@ This runbook covers the day-to-day workflow and field fixes for running the **St
 | Robot talks to | `http://<WINDOWS_LAPTOP_IP>:8008` (bridge -> Modal HTTPS) | `http://<VM_IP>:8011` (straight to the VM) |
 | `--expected-checkpoint` | The `/__modal/volumes/...` path from `/health` | The VM path, e.g. `<VM_HOME>/smolvla/checkpoints/010000/pretrained_model` |
 | Measured speed | ~2.3–2.9 s per `/predict` round trip warm (~3.4–4.4 s cold) | ~360 ms model time warm (~2 s first call); robot -> VM `/health` ~0.04–0.06 s |
-| One-time setup | `docs/MODAL_DEPLOYMENT_GUIDE.md` | `docs/lego_sorting/google_cloud_setup.md` |
+| One-time setup | `docs/MODAL_DEPLOYMENT_GUIDE.md` | `docs/GOOGLE_CLOUD_SETUP.md` |
 
 > **Sanitization notice:** LAN IPs, cloud IPs, workspace URLs, volume IDs and home paths are placeholders: `<ROBOT_HOST>`, `<WINDOWS_LAPTOP_IP>`, `<VM_IP>`, `<VM_HOME>`, `<RUNTIME_DIR>`, `<YOUR-WORKSPACE>`. On the robot used here, `<RUNTIME_DIR>` is the lumosteleop runtime folder (`.../lumosteleop/.app/runtime`).
 
@@ -79,7 +79,7 @@ This runbook covers the day-to-day workflow and field fixes for running the **St
 #### Option B: Google Cloud L4 VM
 
 1. Console -> Compute Engine -> VM instances -> tick the VM -> **START**, wait ~2 min.
-2. If the VM has the `startup-script` metadata (see `docs/lego_sorting/google_cloud_setup.md`, section 7), the server starts by itself; skip to 3. Otherwise open the VM's **SSH** window and run:
+2. If the VM has the `startup-script` metadata (see `docs/GOOGLE_CLOUD_SETUP.md`, section 7), the server starts by itself; skip to 3. Otherwise open the VM's **SSH** window and run:
    ```bash
    tmux new -A -s server
    ```

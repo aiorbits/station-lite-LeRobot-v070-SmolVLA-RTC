@@ -1,9 +1,22 @@
 # Google Cloud setup: from zero to a robot-ready SmolVLA server
 
-How I set up Google Cloud (17–19 Nov 2026) so the Station Lite robot can use the teacher's SmolVLA model on a cloud GPU. This file covers the cloud side only. Day-to-day use is in `my_smolvla_setup_notes.md` (same folder).
+How I set up Google Cloud (17–19 Nov 2026) so the Station Lite robot can use the teacher's SmolVLA model on a cloud GPU. This file covers the cloud side only. Day-to-day use is in `docs/MODAL_RUNBOOK_AND_TROUBLESHOOTING.md` (Option B: Google Cloud).
+
+> **VM specs (what we use)**
+>
+> | | |
+> |---|---|
+> | **GPU** | **1x NVIDIA L4, 24 GB GPU memory** |
+> | **Machine type** | **`g2-standard-8`: 8 vCPUs, 32 GB RAM** |
+> | **Boot disk** | **100 GB** |
+> | **Zone** | `asia-southeast1-b` (Singapore) |
+> | **Software** | Ubuntu, conda env `smolvla`: Python 3.12, LeRobot 0.7.0, torch 2.15.0 |
+> | **Speed** | about 360 ms per prediction (warm) |
+>
+> We started on `g2-standard-4` (4 vCPUs, **16 GB RAM**). 16 GB RAM is too little for training, because loading the demo videos and images fills it. `g2-standard-8` has the same L4 but double the RAM and CPUs. The 24 GB of GPU memory is enough for both serving and fine-tuning SmolVLA. Changing the machine type is in section 9.
 
 **Result:**
-- VM `vla-instance` (1x NVIDIA L4) in `asia-southeast1-b`
+- VM `vla-instance` (1x NVIDIA L4, `g2-standard-8`) in `asia-southeast1-b`
 - server on port 8011
 - fixed IP `<VM_IP>`
 - only the robot's network may reach it
@@ -29,7 +42,7 @@ How I set up Google Cloud (17–19 Nov 2026) so the Station Lite robot can use t
    |---|---|
    | Name | `vla-instance` |
    | Region / zone | `asia-southeast1` / `asia-southeast1-b` (Singapore, close to the robot) |
-   | Machine | GPUs → **NVIDIA L4** x1 → machine type `g2-standard-*` |
+   | Machine | GPUs → **NVIDIA L4** x1 → machine type **`g2-standard-8`** (8 vCPUs, 32 GB RAM) |
    | Boot disk | Ubuntu (or a Deep Learning VM image), **at least 100 GB** |
 
 2. The organisation blocks external IPs on VMs by default, so the VM first had **no external IP**.
@@ -176,4 +189,9 @@ So the browser SSH window isn't needed every day:
 
 ## 9. Ideas for later
 - **Faster answers / smoother motion:** the L4 takes about 360 ms, and the teacher's 4080 about 120 ms. An A100 (`a2-highgpu-1g`) would be faster but costs several times more and needs GPU quota. Changing it: stop VM → Edit → machine type → Start; nothing else changes.
+- **Changing the machine type** (how we went from `g2-standard-4` to `g2-standard-8`):
+  1. Compute Engine → tick `vla-instance` → **STOP**, and wait until it shows stopped.
+  2. Click `vla-instance` → **EDIT** → Machine configuration → machine type → **Save**.
+  3. **START**. The disk, IP, firewall and startup script stay the same.
+  4. Check on the VM: `nvidia-smi --query-gpu=name,memory.total --format=csv && free -h` should show `NVIDIA L4, 23034 MiB` and about 31 Gi of RAM.
 - **Training on the same VM:** upload the raw demos plus a manifest, then use the teacher's `src/training/convert_right_only_dataset.py` and `train_right_only_woodblock.py` (needs `hf download lerobot/smolvla_base` too).
